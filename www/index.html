@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+        <title>SiSecure</title>
+        <link href="lib/ionic/css/ionic.css" rel="stylesheet">
+        <link href="css/style.css" rel="stylesheet">
+        <link rel="stylesheet" type="text/css" href="lib/animate.css/animate.min.css">
+        <!-- Ionic -->
+        <script src="lib/ionic/js/ionic.bundle.js"></script>
+        <script src="lib/ionic-platform-web-client/dist/ionic.io.bundle.min.js"></script>
+        <!-- Cordova -->
+        <!-- Cordova is bootstrapped by ionic-platform-web-client, uncomment this if you remove ionic-platform-web-client... -->
+        <!-- <script src="cordova.js"></script> -->
+        <!-- ng Cordova -->
+        <script src="lib/ngCordova/dist/ng-cordova.js"></script>
+        <!-- Libs -->
+        <script src="lib/moment/moment.js"></script>
+        <script src="lib/angular-moment/angular-moment.js"></script>
+        <!-- App -->
+        <script src="app/app.js"></script>
+        <script src="app/runners.js"></script>
+        <script src="app/constants.js"></script>
+        <!-- Login -->
+        <script src="app/Login/LoginModule.js"></script>
+        <script src="app/Login/LoginRoutes.js"></script>
+        <script src="app/Login/controllers/LoginController.js"></script>
+        <!-- Tabs -->
+        <script src="app/Tabs/TabsModule.js"></script>
+        <script src="app/Tabs/TabsRoutes.js"></script>
+        <!-- Conversations -->
+        <script src="app/Conversations/ConversationModule.js"></script>
+        <script src="app/Conversations/ConversationRoutes.js"></script>
+        <script src="app/Conversations/controllers/ConversationController.js"></script>
+        <script src="app/Conversations/controllers/NewConversationController.js"></script>
+        <!-- Profile -->
+        <script src="app/Profile/ProfileModule.js"></script>
+        <script src="app/Profile/ProfileRoutes.js"></script>
+        <script src="app/Profile/controllers/ProfileController.js"></script>
+        <!-- Settings -->
+        <script src="app/Settings/SettingsModule.js"></script>
+        <script src="app/Settings/SettingsRoutes.js"></script>
+        <script src="app/Settings/controllers/SettingsController.js"></script>
+        <!-- Utility -->
+        <script src="app/Utility/UtilityModule.js"></script>
+        <script src="app/Utility/services/CameraFactory.js"></script>
+        <script src="app/Utility/services/DialogFactory.js"></script>
+        <script src="app/Utility/services/HttpFactory.js"></script>
+        <script src="app/Utility/services/LoadFactory.js"></script>
+        <script src="app/Utility/services/LocationFactory.js"></script>
+        <script src="app/Utility/services/LogFactory.js"></script>
+        <script src="app/Utility/services/ModalFactory.js"></script>
+        <script src="app/Utility/services/NetworkFactory.js"></script>
+        <script src="app/Utility/services/PopupFactory.js"></script>
+        <script src="app/Utility/services/StorageFactory.js"></script>
+        <script src="app/Utility/services/UtilFactory.js"></script>
+        <script src="app/Utility/services/PushFactory.js"></script>
+        <!-- addons -->
+        <script src="lib/qrcode/lib/qrcode.min.js"></script>
+        <script src="lib/angular-qr/angular-qr.min.js"></script>
+        <script src="app/config.js"></script>
+    </head>
+    <body ng-app="SiSecure">
+        <ion-nav-bar class="bar-stable">
+            <ion-nav-buttons side="right" ng-if="loading">
+                <ion-spinner></ion-spinner>
+            </ion-nav-buttons>
+            <ion-nav-back-button>
+            </ion-nav-back-button>
+        </ion-nav-bar>
+        <ion-nav-view></ion-nav-view>
+    </body>
+</html>

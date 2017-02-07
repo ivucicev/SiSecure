@@ -1,0 +1,24 @@
+<ion-modal-view ng-controller="NewConversationController">
+    <ion-header-bar>
+        <h1 class="title">New Conversation</h1>
+        <button class="button button-clear icon ion-close" ng-click="closeModal()"></button>
+    </ion-header-bar>
+    <ion-content>
+        <div class="row">
+            <div class="col"><button class="button button-block button-clear icon icon-right ion-camera" ng-click="scanQRcode()">Scan code</button></div>
+            <div class="col"><button class="button button-block button-clear icon icon-right ion-qr-scanner" ng-click="generateData()">Generate code</button></div>
+        </div>
+        <div class="row" ng-if="userData">
+            <div class="col col-offset-20">
+                <qr text="userData"></qr>
+            </div>
+        </div>
+        <div class="row" ng-show="userData">
+            <div class="col"></div>
+            <div class="col">
+                Show this QR code to someone you want to start chat with, and let him scan it with his SiSecure Application.
+            </div>
+            <div class="col"></div>
+        </div>
+    </ion-content>
+</ion-modal-view>

@@ -1,0 +1,100 @@
+<ion-view hide-nav-bar="true">
+    <ion-content>
+        <button class="button button-block button-clear button-full icon icon-right ion-help-circled" ng-click="helpinfo=!helpinfo" ></button>
+        <ion-list class="card">
+            <ion-item class="item-image">
+                <img style="border-radius: 1500px;" src="http://danfresellapcr.weebly.com/uploads/1/9/0/3/19031761/852400_orig.jpg">
+            </ion-item>
+        </ion-list>
+        <div class="row" class="img-tabs">
+            <div class="col">
+                <button class="button button-clear button-full button-light icon ion-camera"></button>
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Take new photo.</small>
+                </p>
+            </div>
+            <div class="col">
+                <button class="button button-clear button-full button-light icon ion-images"></button>
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Select photo from gallery.</small>
+                </p>
+            </div>
+        </div>
+        <ion-list>
+             <ion-item class="item item-icon-left item-icon-right" href="#">
+                <i class="icon ion-person"></i>
+                    Ivan Vucicevic
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Your display name.</small>
+                </p>
+                <i class="icon ion-edit"></i>
+            </ion-item>
+            <ion-item class="item-icon-left item-toggle">
+                Password Protection
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Encrypt and lock all messages everytime you exit the app, until you unlock them again.</small>
+                </p>
+                <i class="icon ion-locked"></i>
+                <label class="toggle toggle-balanced">
+                    <input type="checkbox">
+                    <div class="track">
+                        <div class="handle"></div>
+                    </div>
+                </label>
+            </ion-item>
+            <ion-item class="item-icon-left item-toggle">
+                Show My Picture
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Let other users see your picture inside their conversation with you.</small>
+                </p>
+                <i class="icon ion-person-stalker"></i>
+                <label class="toggle toggle-balanced">
+                    <input type="checkbox">
+                    <div class="track">
+                        <div class="handle"></div>
+                    </div>
+                </label>
+            </ion-item>
+            <ion-item class="item-icon-left item-toggle">
+                Share My Location
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Let other users to see my current location on map.</small>
+                </p>
+                <i class="icon ion-location"></i>
+                <label class="toggle toggle-balanced">
+                    <input type="checkbox">
+                    <div class="track">
+                        <div class="handle"></div>
+                    </div>
+                </label>
+            </ion-item>
+            <ion-item class="item-icon-left item-toggle">
+                Share seen status
+                <p style="white-space: normal" ng-show="helpinfo" >
+                    <small>Show other users that you have read their message.</small>
+                </p>
+                <i class="icon ion-eye"></i>
+                <label class="toggle toggle-balanced">
+                    <input type="checkbox">
+                    <div class="track">
+                        <div class="handle"></div>
+                    </div>
+                </label>
+            </ion-item>
+        </ion-list>
+        <div class="row">
+            <div class="col">
+                <button class="button button-block  button-clear button-postive icon icon-right ion-wifi">
+                    Backup data
+                </button>
+                <small ng-show="helpinfo" >Encrypt all data and send backup to your email address.</small>
+            </div>
+            <div class="col">
+                <button class="button button-block  button-clear button-assertive icon icon-right ion-nuclear">
+                    Destroy data
+                </button>
+                <small ng-show="helpinfo" >Remove all data from you phone as well from every other phone you have conversation on.</small>
+            </div>
+        </div>
+    </ion-content>
+</ion-view>

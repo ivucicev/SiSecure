@@ -1,0 +1,38 @@
+<ion-view view-title="Title">
+    <ion-nav-buttons side="right">
+        <button class="button button-clear icon icon-right ion-edit" ng-click="startNewConversation()">
+            New
+        </button>
+    </ion-nav-buttons>
+    <ion-content>
+        <ion-list>
+            <ion-item class="item-input-inset">
+                <label class="item-input-wrapper">
+                    <input type="text" placeholder="Search...">
+                </label>
+                <button class="button button-small button-clear icon ion-close">
+                </button>
+            </ion-item>
+        </ion-list>
+        <ion-refresher
+            pulling-text="Pull to refresh..."
+            on-refresh="doRefresh()">
+        </ion-refresher>
+        <ion-list>
+            <ion-item class="item-remove-animate item-avatar item-icon-right" type="item-text-wrap" href="#/tab/chats/{{chat.id}}">
+                <img ng-src="http://wisdomwebsite.com/wp-content/uploads/Steve-Jobs-t_hero-200x200.jpg">
+                <h2>Ivan Vucicevic</h2>
+                <p>ockej</p>
+                <span class="badge badge-calm">2</span>
+                <span am-time-ago="date" class="item-note"></span>
+                <i class="icon ion-chevron-right"></i>
+                <ion-option-button class="button" ng-click="remove(chat)">
+                    <i class="icon ion-minus-circled assertive"></i>
+                </ion-option-button>
+            </ion-item>
+        </ion-list>
+        <button class="button button-block" ng-click="registerPush()"> Register </button>
+        <button class="button button-block" ng-click="getUserID()"> UserID </button>
+        <button class="button button-block" ng-click="init()"> SEND PUSH</button>
+    </ion-content>
+</ion-view>
