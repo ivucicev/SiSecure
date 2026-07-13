@@ -25,8 +25,13 @@ export interface Message {
   timestamp: number;
   mediaUrl?: string; 
   mediaSize?: number;
-  duration?: number; 
+  duration?: number;
   reactions?: { [emoji: string]: string[] }; // emoji -> list of publicKeys
+  // Publickeys still owed this message. Set to the full target list on first
+  // send; each successful transmit removes that target. status only becomes
+  // 'sent' once this is empty — for groups, one member being online must not
+  // stop retries to the ones who are still offline.
+  pendingTargets?: string[];
 }
 
 export interface Group {

@@ -442,13 +442,17 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     conn.on('error', onCloseOrError);
   };
 
+  // Re-sends anything this specific peer is still owed the moment they come
+  // back online — works for both 1:1 and group messages, since pendingTargets
+  // tracks real per-member delivery state rather than the message's single
+  // recipientPublicKey (which is blank for groups).
   const flushPendingMessages = async (targetPublicKey: string) => {
     const conn = connectionsRef.current.get(targetPublicKey);
     if (!conn || !conn.open) return;
 
     const pending = await db.messages
-      .where('recipientPublicKey').equals(targetPublicKey)
-      .and(m => m.status === 'sent')
+      .where('status').equals('sending')
+      .and(m => (m.pendingTargets || []).includes(targetPublicKey))
       .toArray();
 
     pending.forEach(msg => { broadcastMessage(msg, !!msg.groupId); });
@@ -672,11 +676,17 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     broadcastMessage(message, isGroup);
   };
 
-  // Encrypts and sends `message` to every target. For 1:1 this is the pairwise
-  // Double Ratchet session with the recipient; for groups it's the shared
-  // Megolm session, lazily created on first send. The wire copy's content is
-  // ciphertext and mediaUrl is stripped — the locally-stored message row (used
-  // for our own chat history) keeps the original plaintext untouched.
+  // Encrypts and sends `message` to every target still owed it. For 1:1 this
+  // is the pairwise Double Ratchet session with the recipient; for groups
+  // it's the shared Megolm session, lazily created on first send. The wire
+  // copy's content is ciphertext and mediaUrl is stripped — the
+  // locally-stored message row (used for our own chat history) keeps the
+  // original plaintext untouched.
+  //
+  // Per-target delivery is tracked via `pendingTargets` rather than a single
+  // success flag: a group message where only some members are online must
+  // stay 'sending' (and keep being retried) for the ones who are offline,
+  // not flip to 'sent' just because somebody happened to be reachable.
   const broadcastMessage = async (message: Message, isGroup: boolean) => {
     if (!profile) return;
     const account = olmAccountRef.current;
@@ -684,13 +694,13 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const plaintext = JSON.stringify({ content: message.content, mediaUrl: message.mediaUrl });
 
-    let targets: string[];
+    let allTargets: string[];
     let groupCiphertext: string | undefined;
 
     if (isGroup) {
       const group = await db.groups.get(message.groupId!);
-      targets = group?.members.filter(m => m !== profile.publicKey) ?? [];
-      if (!group || targets.length === 0) return;
+      allTargets = group?.members.filter(m => m !== profile.publicKey) ?? [];
+      if (!group || allTargets.length === 0) return;
 
       await ensureAndMaybeDistributeGroupKey(message.groupId!, group.members);
       try {
@@ -699,12 +709,17 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return; // No outbound session yet; will retry.
       }
     } else {
-      targets = [message.recipientPublicKey];
+      allTargets = [message.recipientPublicKey];
     }
 
-    let anySucceeded = false;
+    const current = await db.messages.get(message.id);
+    const outstanding = current?.pendingTargets ?? allTargets;
+    const targetsToSend = allTargets.filter(t => outstanding.includes(t));
+    if (targetsToSend.length === 0) return;
 
-    await Promise.all(targets.map(async (target) => {
+    const stillPending = new Set(targetsToSend);
+
+    await Promise.all(targetsToSend.map(async (target) => {
       try {
         const conn = await getOrCreateConnection(target);
 
@@ -728,18 +743,16 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         conn.send(wirePayload);
-        anySucceeded = true;
+        stillPending.delete(target);
       } catch {
-        // Peer offline / send failed; retried later via the 'sending' retry sweep.
+        // Peer offline / send failed; stays pending, retried later.
       }
     }));
 
-    if (anySucceeded) {
-      const msg = await db.messages.get(message.id);
-      if (msg && msg.status === 'sending') {
-        await db.messages.update(message.id, { status: 'sent' });
-      }
-    }
+    await db.messages.update(message.id, {
+      pendingTargets: Array.from(stillPending),
+      status: stillPending.size === 0 ? 'sent' : 'sending'
+    });
   };
 
   const createGroup = async (name: string, members: string[]) => {
