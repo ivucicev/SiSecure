@@ -1,29 +1,50 @@
 import React, { useState } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Plus, 
-  Settings, 
-  Search, 
-  QrCode, 
-  ShieldCheck, 
+import {
+  Plus,
+  Settings,
+  Search,
+  QrCode,
+  ShieldCheck,
   MessageSquare,
   MoreVertical,
   LogOut,
-  Boxes
+  Boxes,
+  Flame
 } from 'lucide-react';
 import { ChatList } from './ChatList';
 import { ChatView } from './ChatView';
 import { AddContactModal } from './AddContactModal';
 import { SettingsModal } from './SettingsModal';
 import { CreateGroupModal } from './CreateGroupModal';
-import { cn } from '../lib/utils';
+import { TempRoomView } from './TempRoomView';
+import { generateId, cn } from '../lib/utils';
+import { generateRoomKey, exportKeyToUrlSafe } from '../lib/tempCrypto';
 
 export function Home() {
   const { profile, currentChatId, setCurrentChatId } = useSiSecure();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [hostingRoom, setHostingRoom] = useState<{ roomId: string; roomKeyB64: string } | null>(null);
+
+  const startTempRoom = async () => {
+    const key = await generateRoomKey();
+    const roomKeyB64 = await exportKeyToUrlSafe(key);
+    setHostingRoom({ roomId: generateId(), roomKeyB64 });
+  };
+
+  if (hostingRoom) {
+    return (
+      <TempRoomView
+        mode="host"
+        roomId={hostingRoom.roomId}
+        roomKeyB64={hostingRoom.roomKeyB64}
+        onExit={() => setHostingRoom(null)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen bg-obsidian-950 overflow-hidden text-zinc-100">
@@ -37,14 +58,21 @@ export function Home() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold tracking-tight">Messages</h1>
             <div className="flex gap-2">
-              <button 
+              <button
+                onClick={startTempRoom}
+                className="p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors"
+                title="New Temp Room"
+              >
+                <Flame className="w-5 h-5" />
+              </button>
+              <button
                 onClick={() => setIsCreateGroupOpen(true)}
                 className="p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-colors"
                 title="Create Alliance"
               >
                 <Boxes className="w-5 h-5" />
               </button>
-              <button 
+              <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 transition-colors"
                 title="Add Contact"
@@ -112,12 +140,20 @@ export function Home() {
               <p className="text-slate-500 max-w-xs text-sm leading-relaxed">
                 Select a contact or scan a QR code to start an end-to-end encrypted P2P session.
               </p>
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                className="mt-8 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-sm font-medium transition-all"
-              >
-                Scan New Contact
-              </button>
+              <div className="mt-8 flex items-center gap-3">
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-sm font-medium transition-all"
+                >
+                  Scan New Contact
+                </button>
+                <button
+                  onClick={startTempRoom}
+                  className="px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 rounded-2xl border border-amber-500/20 text-amber-400 text-sm font-medium transition-all flex items-center gap-2"
+                >
+                  <Flame className="w-4 h-4" /> New Temp Room
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

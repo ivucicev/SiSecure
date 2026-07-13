@@ -7,7 +7,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { generateId, cn } from '../lib/utils';
 
 export function AddContactModal({ onClose }: { onClose: () => void }) {
-  const { profile, addContact } = useSiSecure();
+  const { profile, addContact, connectToContact } = useSiSecure();
   const [view, setView] = useState<'my-qr' | 'scan' | 'manual'>('my-qr');
   const [scannedResult, setScannedResult] = useState<string | null>(null);
   const [manualName, setManualName] = useState('');
@@ -68,19 +68,9 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
           lastSeen: Date.now()
         });
 
-        // Broadcast handshake signal to the "P2P network"
+        // Initiate a direct WebRTC connection to the new contact.
         if (profile) {
-          const channel = new BroadcastChannel('sisecure_p2p');
-          channel.postMessage({
-            type: 'P2P_HANDSHAKE',
-            payload: { targetPublicKey: publicKey },
-            senderProfile: {
-              id: profile.id,
-              displayName: profile.displayName,
-              publicKey: profile.publicKey
-            }
-          });
-          channel.close();
+          connectToContact(publicKey);
         }
 
         setScannedResult('success');

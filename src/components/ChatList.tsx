@@ -1,11 +1,28 @@
 import React from 'react';
 import { useSiSecure } from '../SiSecureContext';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'motion/react';
+import { db } from '../lib/db';
 import { cn, formatTime } from '../lib/utils';
 import { Shield, Clock, Boxes } from 'lucide-react';
 
 export function ChatList() {
-  const { contacts, groups, currentChatId, setCurrentChatId } = useSiSecure();
+  const { contacts, groups, profile, currentChatId, setCurrentChatId } = useSiSecure();
+
+  const unreadCounts = useLiveQuery(async () => {
+    if (!profile) return {} as Record<string, number>;
+
+    const delivered = await db.messages.where('status').equals('delivered').toArray();
+    const counts: Record<string, number> = {};
+
+    for (const m of delivered) {
+      if (m.senderPublicKey === profile.publicKey) continue;
+      const key = m.groupId || m.senderPublicKey;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+
+    return counts;
+  }, [profile?.publicKey]) || {};
 
   if (contacts.length === 0 && groups.length === 0) {
     return (
@@ -53,12 +70,19 @@ export function ChatList() {
                     {group.members.length} Agents
                   </span>
                 </div>
-                <p className={cn(
-                  "text-[10px] truncate uppercase tracking-tighter font-mono",
-                  currentChatId === group.id ? "text-blue-500/60" : "text-zinc-600"
-                )}>
-                  P2P Cluster Active
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className={cn(
+                    "text-[10px] truncate uppercase tracking-tighter font-mono",
+                    currentChatId === group.id ? "text-blue-500/60" : "text-zinc-600"
+                  )}>
+                    P2P Cluster Active
+                  </p>
+                  {!!unreadCounts[group.id] && (
+                    <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCounts[group.id]}
+                    </span>
+                  )}
+                </div>
               </div>
             </button>
           ))}
@@ -97,7 +121,9 @@ export function ChatList() {
             <div className="flex justify-between items-baseline mb-0.5">
               <h2 className={cn(
                 "text-sm font-semibold truncate",
-                currentChatId === contact.publicKey ? "text-zinc-100" : "text-zinc-300"
+                currentChatId === contact.publicKey
+                  ? "text-zinc-100"
+                  : unreadCounts[contact.publicKey] ? "text-white" : "text-zinc-300"
               )}>
                 {contact.displayName}
               </h2>
@@ -105,12 +131,19 @@ export function ChatList() {
                 {contact.lastSeen ? formatTime(contact.lastSeen) : ''}
               </span>
             </div>
-            <p className={cn(
-              "text-xs truncate",
-              currentChatId === contact.publicKey ? "text-blue-400" : "text-zinc-500"
-            )}>
-              Secure Session Active
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className={cn(
+                "text-xs truncate",
+                currentChatId === contact.publicKey ? "text-blue-400" : "text-zinc-500"
+              )}>
+                Secure Session Active
+              </p>
+              {!!unreadCounts[contact.publicKey] && (
+                <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadCounts[contact.publicKey]}
+                </span>
+              )}
+            </div>
           </div>
         </button>
       ))}

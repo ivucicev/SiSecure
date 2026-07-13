@@ -7,10 +7,10 @@ import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { profile, settings, updateProfile, updateSettings } = useSiSecure();
+  const { profile, settings, updateProfile, updateSettings, lightNuke, fullNuke } = useSiSecure();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
-  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
   
   const [passwordModal, setPasswordModal] = useState<{
     type: 'export' | 'import';
@@ -135,8 +135,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const handlePurge = async () => {
-    await db.delete();
+  const handleLightNuke = async () => {
+    await lightNuke();
+    window.location.reload();
+  };
+
+  const handleFullNuke = async () => {
+    await fullNuke();
     window.location.reload();
   };
 
@@ -246,23 +251,41 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     <div className="w-[12%] h-full bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]" />
                   </div>
                 </div>
-                {showPurgeConfirm ? (
+                {purgeConfirm ? (
                   <div className="space-y-3">
                     <p className="text-[10px] text-red-500 font-bold uppercase text-center flex items-center justify-center gap-2">
-                      <AlertTriangle className="w-3 h-3" /> Final Warning: Instant wipe
+                      <AlertTriangle className="w-3 h-3" />
+                      {purgeConfirm === 'light'
+                        ? 'Erase all messages? Contacts stay.'
+                        : 'Erase contacts, groups & messages?'}
                     </p>
                     <div className="flex gap-2">
-                      <button onClick={handlePurge} className="flex-1 h-10 bg-red-600 text-white rounded-xl text-[10px] font-bold uppercase">CONFIRM PURGE</button>
-                      <button onClick={() => setShowPurgeConfirm(false)} className="flex-1 h-10 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase">CANCEL</button>
+                      <button
+                        onClick={purgeConfirm === 'light' ? handleLightNuke : handleFullNuke}
+                        className="flex-1 h-10 bg-red-600 text-white rounded-xl text-[10px] font-bold uppercase"
+                      >
+                        Confirm {purgeConfirm === 'light' ? 'Light' : 'Full'} Nuke
+                      </button>
+                      <button onClick={() => setPurgeConfirm(null)} className="flex-1 h-10 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase">CANCEL</button>
                     </div>
                   </div>
                 ) : (
-                  <button 
-                    onClick={() => setShowPurgeConfirm(true)}
-                    className="w-full mt-2 h-12 bg-zinc-900 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-2xl text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" /> Nuclear Purge
-                  </button>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => setPurgeConfirm('light')}
+                      className="flex-1 h-12 bg-zinc-900 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/20 rounded-2xl text-zinc-500 hover:text-amber-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                      title="Deletes messages only. Contacts are kept."
+                    >
+                      <Trash2 className="w-4 h-4" /> Light Nuke
+                    </button>
+                    <button
+                      onClick={() => setPurgeConfirm('full')}
+                      className="flex-1 h-12 bg-zinc-900 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-2xl text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                      title="Deletes messages, contacts & groups. Identity is kept."
+                    >
+                      <Trash2 className="w-4 h-4" /> Full Nuke
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -303,8 +326,45 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 </div>
               )}
               <div className="h-px bg-white/5 mx-6" />
-              <ToggleRow 
-                label="Biometric Barrier" 
+              <ToggleRow
+                label="Auto-Nuke on Inactivity"
+                desc="If you don't open the app for a while, automatically light-nuke then full-nuke local data."
+                on={settings?.autoNukeEnabled || false}
+                onChange={(val) => updateSettings({ autoNukeEnabled: val })}
+              />
+              {settings?.autoNukeEnabled && (
+                <div className="px-6 pb-6 pt-2 space-y-3">
+                  <div className="bg-zinc-900/50 p-4 rounded-2xl flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Light nuke after</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={settings.autoNukeLightDays ?? 3}
+                        onChange={(e) => updateSettings({ autoNukeLightDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-14 bg-zinc-800 border-none rounded-lg px-2 py-1 text-sm font-bold text-amber-500 outline-none text-right"
+                      />
+                      <span className="text-[10px] text-zinc-500 uppercase">days</span>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-900/50 p-4 rounded-2xl flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Full nuke after</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={settings.autoNukeFullDays ?? 7}
+                        onChange={(e) => updateSettings({ autoNukeFullDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-14 bg-zinc-800 border-none rounded-lg px-2 py-1 text-sm font-bold text-red-500 outline-none text-right"
+                      />
+                      <span className="text-[10px] text-zinc-500 uppercase">days</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="h-px bg-white/5 mx-6" />
+              <ToggleRow
+                label="Biometric Barrier"
                 desc="Lock the application access behind your device authentication flow." 
                 on={settings?.biometricLock || false}
                 onChange={(val) => updateSettings({ biometricLock: val })}

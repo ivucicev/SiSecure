@@ -3,13 +3,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from 'react';
 import { SiSecureProvider, useSiSecure } from './SiSecureContext';
 import { Onboarding } from './components/Onboarding';
 import { Home } from './components/Home';
+import { TempRoomView } from './components/TempRoomView';
 import { AnimatePresence, motion } from 'motion/react';
+
+function parseRoomHash(hash: string): { roomId: string; key: string } | null {
+  if (!hash.startsWith('#room=')) return null;
+  const params = new URLSearchParams(hash.slice(1));
+  const roomId = params.get('room');
+  const key = params.get('key');
+  if (!roomId || !key) return null;
+  return { roomId, key };
+}
 
 function AppContent() {
   const { profile, isLoading } = useSiSecure();
+  const [roomFromUrl, setRoomFromUrl] = useState(() => parseRoomHash(window.location.hash));
+
+  if (roomFromUrl) {
+    return (
+      <TempRoomView
+        mode="guest"
+        roomId={roomFromUrl.roomId}
+        roomKeyB64={roomFromUrl.key}
+        onExit={() => {
+          window.location.hash = '';
+          setRoomFromUrl(null);
+        }}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
