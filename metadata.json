@@ -1,0 +1,13 @@
+{
+  "name": "SiSecure",
+  "description": "A secure, peer-to-peer encrypted messaging app focused on privacy and local-only data storage.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "P2P Messaging",
+    "End-to-End Encryption",
+    "Local Storage",
+    "QR Contact Exchange"
+  ]
+}

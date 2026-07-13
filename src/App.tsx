@@ -1,0 +1,45 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { SiSecureProvider, useSiSecure } from './SiSecureContext';
+import { Onboarding } from './components/Onboarding';
+import { Home } from './components/Home';
+import { AnimatePresence, motion } from 'motion/react';
+
+function AppContent() {
+  const { profile, isLoading } = useSiSecure();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-obsidian-950">
+        <motion.div
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ repeat: Infinity, duration: 3 }}
+          className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center"
+        >
+          <div className="w-6 h-6 rounded-full bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <AnimatePresence mode="wait">
+      {!profile ? (
+        <Onboarding key="onboarding" />
+      ) : (
+        <Home key="home" />
+      )}
+    </AnimatePresence>
+  );
+}
+
+export default function App() {
+  return (
+    <SiSecureProvider>
+      <AppContent />
+    </SiSecureProvider>
+  );
+}
