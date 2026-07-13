@@ -8,6 +8,27 @@ const OTK_TOP_UP_THRESHOLD = 5;
 const OTK_GENERATE_BATCH = 20;
 
 // ---------------------------------------------------------------------------
+// Per-key serialization. Every session type below does an async
+// load-mutate-persist cycle (unpickle from IndexedDB, encrypt/decrypt —
+// which advances the ratchet — then pickle + save). If two calls for the
+// *same* session overlap (e.g. two messages sent back-to-back before the
+// first one's persist finishes), both would load the same stale state,
+// advance independently, and desync — the receiver decrypts the first fine
+// then fails the second, exactly the "key not yet received" symptom this
+// fixes. withLock forces overlapping calls for the same key to run strictly
+// one after another.
+// ---------------------------------------------------------------------------
+
+const locks = new Map<string, Promise<unknown>>();
+
+function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prior = locks.get(key) ?? Promise.resolve();
+  const run = prior.then(fn, fn);
+  locks.set(key, run.then(() => undefined, () => undefined));
+  return run;
+}
+
+// ---------------------------------------------------------------------------
 // Account (identity)
 // ---------------------------------------------------------------------------
 
@@ -47,50 +68,70 @@ export async function claimOneTimeKeyForHello(
   profileId: string,
   account: OlmAccount
 ): Promise<{ keyId: string; key: string } | undefined> {
-  const profile = await db.profile.get(profileId);
-  const handedOut = new Set(profile?.olmHandedOutOtkIds || []);
+  return withLock(`account-otk:${profileId}`, async () => {
+    const profile = await db.profile.get(profileId);
+    const handedOut = new Set(profile?.olmHandedOutOtkIds || []);
 
-  let otks = (JSON.parse(account.one_time_keys()).curve25519 || {}) as Record<string, string>;
-  let unused = Object.entries(otks).filter(([keyId]) => !handedOut.has(keyId));
+    let otks = (JSON.parse(account.one_time_keys()).curve25519 || {}) as Record<string, string>;
+    let unused = Object.entries(otks).filter(([keyId]) => !handedOut.has(keyId));
 
-  if (unused.length <= OTK_TOP_UP_THRESHOLD) {
-    account.generate_one_time_keys(OTK_GENERATE_BATCH);
-    otks = (JSON.parse(account.one_time_keys()).curve25519 || {}) as Record<string, string>;
-    unused = Object.entries(otks).filter(([keyId]) => !handedOut.has(keyId));
-  }
+    if (unused.length <= OTK_TOP_UP_THRESHOLD) {
+      account.generate_one_time_keys(OTK_GENERATE_BATCH);
+      otks = (JSON.parse(account.one_time_keys()).curve25519 || {}) as Record<string, string>;
+      unused = Object.entries(otks).filter(([keyId]) => !handedOut.has(keyId));
+    }
 
-  const entry = unused[0];
-  if (!entry) return undefined;
+    const entry = unused[0];
+    if (!entry) return undefined;
 
-  const [keyId, key] = entry;
-  handedOut.add(keyId);
+    const [keyId, key] = entry;
+    handedOut.add(keyId);
 
-  // Prune handed-out ids no longer present in the live key set so this list
-  // doesn't grow forever.
-  const liveIds = new Set(Object.keys(otks));
-  const prunedHandedOut = Array.from(handedOut).filter(id => liveIds.has(id));
+    // Prune handed-out ids no longer present in the live key set so this list
+    // doesn't grow forever.
+    const liveIds = new Set(Object.keys(otks));
+    const prunedHandedOut = Array.from(handedOut).filter(id => liveIds.has(id));
 
-  await persistAccount(profileId, account, prunedHandedOut);
+    await persistAccount(profileId, account, prunedHandedOut);
 
-  return { keyId, key };
+    return { keyId, key };
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Pairwise sessions (Double Ratchet)
 // ---------------------------------------------------------------------------
 
-function unpickleSession(profileId: string, pickle: string): OlmSession {
+// Live session objects, cached in memory once loaded so repeated
+// encrypt/decrypt calls for the same contact reuse the same instance instead
+// of re-unpickling (potentially stale) bytes from IndexedDB each time.
+const pairwiseCache = new Map<string, { session: OlmSession; initiatedByMe: boolean }>();
+
+async function loadPairwiseSession(
+  profileId: string,
+  contactPublicKey: string
+): Promise<{ session: OlmSession; initiatedByMe: boolean } | undefined> {
+  const cached = pairwiseCache.get(contactPublicKey);
+  if (cached) return cached;
+
+  const record = await db.olmSessions.get(contactPublicKey);
+  if (!record) return undefined;
+
   const session = new Olm.Session();
-  session.unpickle(pickleKeyFor(profileId), pickle);
-  return session;
+  session.unpickle(pickleKeyFor(profileId), record.pickle);
+  const entry = { session, initiatedByMe: record.initiatedByMe };
+  pairwiseCache.set(contactPublicKey, entry);
+  return entry;
 }
 
-async function persistPairwiseSession(
+async function savePairwiseSession(
   profileId: string,
   contactPublicKey: string,
   session: OlmSession,
   initiatedByMe: boolean
 ): Promise<void> {
+  pairwiseCache.set(contactPublicKey, { session, initiatedByMe });
+
   const record: OlmSessionRecord = {
     contactPublicKey,
     pickle: session.pickle(pickleKeyFor(profileId)),
@@ -106,26 +147,28 @@ export async function encryptToContact(
   contact: Contact,
   plaintext: string
 ): Promise<{ olmType: 0 | 1; body: string }> {
-  const record = await db.olmSessions.get(contact.publicKey);
-  let session: OlmSession;
-  let initiatedByMe: boolean;
+  return withLock(`pairwise:${contact.publicKey}`, async () => {
+    const existing = await loadPairwiseSession(profileId, contact.publicKey);
+    let session: OlmSession;
+    let initiatedByMe: boolean;
 
-  if (record) {
-    session = unpickleSession(profileId, record.pickle);
-    initiatedByMe = record.initiatedByMe;
-  } else {
-    if (!contact.olmIdentityKey || !contact.olmOneTimeKey) {
-      throw new Error('missing-identity-key');
+    if (existing) {
+      session = existing.session;
+      initiatedByMe = existing.initiatedByMe;
+    } else {
+      if (!contact.olmIdentityKey || !contact.olmOneTimeKey) {
+        throw new Error('missing-identity-key');
+      }
+      session = new Olm.Session();
+      session.create_outbound(account, contact.olmIdentityKey, contact.olmOneTimeKey.key);
+      initiatedByMe = true;
     }
-    session = new Olm.Session();
-    session.create_outbound(account, contact.olmIdentityKey, contact.olmOneTimeKey.key);
-    initiatedByMe = true;
-  }
 
-  const cipher = session.encrypt(plaintext);
-  await persistPairwiseSession(profileId, contact.publicKey, session, initiatedByMe);
+    const cipher = session.encrypt(plaintext);
+    await savePairwiseSession(profileId, contact.publicKey, session, initiatedByMe);
 
-  return { olmType: cipher.type, body: cipher.body };
+    return { olmType: cipher.type, body: cipher.body };
+  });
 }
 
 // Resolves session "glare" (both sides independently create_outbound to each other
@@ -140,101 +183,124 @@ export async function decryptFromContact(
   olmType: 0 | 1,
   body: string
 ): Promise<string> {
-  const record = await db.olmSessions.get(senderPublicKey);
+  return withLock(`pairwise:${senderPublicKey}`, async () => {
+    const existing = await loadPairwiseSession(profileId, senderPublicKey);
 
-  if (record) {
-    const session = unpickleSession(profileId, record.pickle);
+    if (existing) {
+      const { session, initiatedByMe } = existing;
 
-    if (olmType === 1 || session.matches_inbound(body)) {
-      const plaintext = session.decrypt(olmType, body);
-      await persistPairwiseSession(profileId, senderPublicKey, session, record.initiatedByMe);
+      if (olmType === 1 || session.matches_inbound(body)) {
+        const plaintext = session.decrypt(olmType, body);
+        await savePairwiseSession(profileId, senderPublicKey, session, initiatedByMe);
+        return plaintext;
+      }
+
+      // Genuine glare: this PreKey message doesn't belong to our existing session.
+      // Must still decrypt it with a fresh inbound session to read it, then decide
+      // which session survives as canonical going forward.
+      const inboundSession = new Olm.Session();
+      inboundSession.create_inbound(account, body);
+      const plaintext = inboundSession.decrypt(olmType, body);
+      account.remove_one_time_keys(inboundSession);
+      await persistAccount(profileId, account);
+
+      const keepMyExisting = initiatedByMe && myPublicKey < senderPublicKey;
+      if (!keepMyExisting) {
+        await savePairwiseSession(profileId, senderPublicKey, inboundSession, false);
+      }
+
       return plaintext;
     }
 
-    // Genuine glare: this PreKey message doesn't belong to our existing session.
-    // Must still decrypt it with a fresh inbound session to read it, then decide
-    // which session survives as canonical going forward.
-    const inboundSession = new Olm.Session();
-    inboundSession.create_inbound(account, body);
-    const plaintext = inboundSession.decrypt(olmType, body);
-    account.remove_one_time_keys(inboundSession);
-    await persistAccount(profileId, account);
-
-    const keepMyExisting = record.initiatedByMe && myPublicKey < senderPublicKey;
-    if (!keepMyExisting) {
-      await persistPairwiseSession(profileId, senderPublicKey, inboundSession, false);
+    if (olmType !== 0) {
+      throw new Error('no-session-for-ratchet-message');
     }
 
+    const session = new Olm.Session();
+    session.create_inbound(account, body);
+    const plaintext = session.decrypt(olmType, body);
+    account.remove_one_time_keys(session);
+    await persistAccount(profileId, account);
+    await savePairwiseSession(profileId, senderPublicKey, session, false);
+
     return plaintext;
-  }
-
-  if (olmType !== 0) {
-    throw new Error('no-session-for-ratchet-message');
-  }
-
-  const session = new Olm.Session();
-  session.create_inbound(account, body);
-  const plaintext = session.decrypt(olmType, body);
-  account.remove_one_time_keys(session);
-  await persistAccount(profileId, account);
-  await persistPairwiseSession(profileId, senderPublicKey, session, false);
-
-  return plaintext;
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Group sessions (Megolm) — bootstrapped by distributing the session key over
 // each member's pairwise Olm session (same pattern Matrix uses for room keys).
+// Same in-memory caching + per-key locking as pairwise sessions above, for
+// the same reason (concurrent group messages must not race on the pickle).
 // ---------------------------------------------------------------------------
+
+const megolmOutboundCache = new Map<string, InstanceType<typeof Olm.OutboundGroupSession>>();
+const megolmInboundCache = new Map<string, InstanceType<typeof Olm.InboundGroupSession>>();
 
 export async function ensureOutboundGroupSession(
   groupId: string,
   profileId: string
 ): Promise<{ sessionKey: string; isNew: boolean }> {
-  const existing = await db.megolmOutboundSessions.get(groupId);
-  if (existing) {
+  return withLock(`mout:${groupId}`, async () => {
+    const cached = megolmOutboundCache.get(groupId);
+    if (cached) return { sessionKey: cached.session_key(), isNew: false };
+
+    const existing = await db.megolmOutboundSessions.get(groupId);
+    if (existing) {
+      const session = new Olm.OutboundGroupSession();
+      session.unpickle(pickleKeyFor(profileId), existing.pickle);
+      megolmOutboundCache.set(groupId, session);
+      return { sessionKey: session.session_key(), isNew: false };
+    }
+
     const session = new Olm.OutboundGroupSession();
-    session.unpickle(pickleKeyFor(profileId), existing.pickle);
-    return { sessionKey: session.session_key(), isNew: false };
-  }
+    session.create();
+    megolmOutboundCache.set(groupId, session);
+    await db.megolmOutboundSessions.put({
+      groupId,
+      pickle: session.pickle(pickleKeyFor(profileId)),
+      updatedAt: Date.now()
+    });
 
-  const session = new Olm.OutboundGroupSession();
-  session.create();
-  await db.megolmOutboundSessions.put({
-    groupId,
-    pickle: session.pickle(pickleKeyFor(profileId)),
-    updatedAt: Date.now()
+    return { sessionKey: session.session_key(), isNew: true };
   });
-
-  return { sessionKey: session.session_key(), isNew: true };
 }
 
 export async function rotateOutboundGroupSession(groupId: string, profileId: string): Promise<string> {
-  const session = new Olm.OutboundGroupSession();
-  session.create();
-  await db.megolmOutboundSessions.put({
-    groupId,
-    pickle: session.pickle(pickleKeyFor(profileId)),
-    updatedAt: Date.now()
+  return withLock(`mout:${groupId}`, async () => {
+    const session = new Olm.OutboundGroupSession();
+    session.create();
+    megolmOutboundCache.set(groupId, session);
+    await db.megolmOutboundSessions.put({
+      groupId,
+      pickle: session.pickle(pickleKeyFor(profileId)),
+      updatedAt: Date.now()
+    });
+    return session.session_key();
   });
-  return session.session_key();
 }
 
 export async function encryptGroupMessage(groupId: string, profileId: string, plaintext: string): Promise<string> {
-  const record = await db.megolmOutboundSessions.get(groupId);
-  if (!record) throw new Error('no-outbound-group-session');
+  return withLock(`mout:${groupId}`, async () => {
+    let session = megolmOutboundCache.get(groupId);
+    if (!session) {
+      const record = await db.megolmOutboundSessions.get(groupId);
+      if (!record) throw new Error('no-outbound-group-session');
+      session = new Olm.OutboundGroupSession();
+      session.unpickle(pickleKeyFor(profileId), record.pickle);
+      megolmOutboundCache.set(groupId, session);
+    }
 
-  const session = new Olm.OutboundGroupSession();
-  session.unpickle(pickleKeyFor(profileId), record.pickle);
-  const ciphertext = session.encrypt(plaintext);
+    const ciphertext = session.encrypt(plaintext);
 
-  await db.megolmOutboundSessions.put({
-    groupId,
-    pickle: session.pickle(pickleKeyFor(profileId)),
-    updatedAt: Date.now()
+    await db.megolmOutboundSessions.put({
+      groupId,
+      pickle: session.pickle(pickleKeyFor(profileId)),
+      updatedAt: Date.now()
+    });
+
+    return ciphertext;
   });
-
-  return ciphertext;
 }
 
 export async function ingestGroupKey(
@@ -243,15 +309,19 @@ export async function ingestGroupKey(
   sessionKey: string,
   profileId: string
 ): Promise<void> {
-  const session = new Olm.InboundGroupSession();
-  session.create(sessionKey);
+  const id = `${groupId}:${senderPublicKey}`;
+  await withLock(`min:${id}`, async () => {
+    const session = new Olm.InboundGroupSession();
+    session.create(sessionKey);
+    megolmInboundCache.set(id, session);
 
-  await db.megolmInboundSessions.put({
-    id: `${groupId}:${senderPublicKey}`,
-    groupId,
-    senderPublicKey,
-    pickle: session.pickle(pickleKeyFor(profileId)),
-    updatedAt: Date.now()
+    await db.megolmInboundSessions.put({
+      id,
+      groupId,
+      senderPublicKey,
+      pickle: session.pickle(pickleKeyFor(profileId)),
+      updatedAt: Date.now()
+    });
   });
 }
 
@@ -262,20 +332,26 @@ export async function decryptGroupMessage(
   profileId: string
 ): Promise<string> {
   const id = `${groupId}:${senderPublicKey}`;
-  const record = await db.megolmInboundSessions.get(id);
-  if (!record) throw new Error('no-inbound-group-session');
+  return withLock(`min:${id}`, async () => {
+    let session = megolmInboundCache.get(id);
+    if (!session) {
+      const record = await db.megolmInboundSessions.get(id);
+      if (!record) throw new Error('no-inbound-group-session');
+      session = new Olm.InboundGroupSession();
+      session.unpickle(pickleKeyFor(profileId), record.pickle);
+      megolmInboundCache.set(id, session);
+    }
 
-  const session = new Olm.InboundGroupSession();
-  session.unpickle(pickleKeyFor(profileId), record.pickle);
-  const result = session.decrypt(ciphertext);
+    const result = session.decrypt(ciphertext);
 
-  await db.megolmInboundSessions.put({
-    id,
-    groupId,
-    senderPublicKey,
-    pickle: session.pickle(pickleKeyFor(profileId)),
-    updatedAt: Date.now()
+    await db.megolmInboundSessions.put({
+      id,
+      groupId,
+      senderPublicKey,
+      pickle: session.pickle(pickleKeyFor(profileId)),
+      updatedAt: Date.now()
+    });
+
+    return result.plaintext;
   });
-
-  return result.plaintext;
 }
