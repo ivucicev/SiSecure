@@ -152,7 +152,10 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
 
       peer.on('open', () => {
         if (cancelled) return;
-        const conn = peer.connect(`troom_${roomId}`, { reliable: true, serialization: 'json' });
+        // 'binary' (PeerJS default), not 'json' — json mode can't chunk large
+        // payloads, so anything sizeable (e.g. a room member's message with
+        // an attachment) would fail outright.
+        const conn = peer.connect(`troom_${roomId}`, { reliable: true, serialization: 'binary' });
         hostConnRef.current = conn;
 
         conn.on('open', () => {

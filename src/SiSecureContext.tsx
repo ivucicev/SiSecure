@@ -489,7 +489,12 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const promise = new Promise<DataConnection>((resolve, reject) => {
       const conn = peer.connect(targetPublicKey, {
         reliable: true,
-        serialization: 'json',
+        // 'binary' (PeerJS default) — NOT 'json'. json serialization has no
+        // chunking support, so any payload bigger than a single DataChannel
+        // message (base64 photos/videos routinely are) fails outright.
+        // binary mode transparently chunks + reassembles large payloads,
+        // still delivers plain JS objects to 'data' handlers either way.
+        serialization: 'binary',
         metadata: {
           senderProfile: { id: myProfile.id, displayName: myProfile.displayName, publicKey: myProfile.publicKey }
         }
