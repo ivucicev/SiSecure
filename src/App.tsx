@@ -55,12 +55,12 @@ function AppContent() {
 
   return (
     <AnimatePresence mode="wait">
-      {!entered ? (
-        <Landing key="landing" hasProfile={!!profile} onGetStarted={() => setEntered(true)} />
-      ) : !profile ? (
+      {profile ? (
+        <Home key="home" />
+      ) : entered ? (
         <Onboarding key="onboarding" initialStep={2} />
       ) : (
-        <Home key="home" />
+        <Landing key="landing" onGetStarted={() => setEntered(true)} />
       )}
     </AnimatePresence>
   );
