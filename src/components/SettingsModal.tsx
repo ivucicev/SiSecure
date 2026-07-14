@@ -386,7 +386,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="p-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-[10px] text-zinc-600 font-mono tracking-tighter">NODE_ID // {profile?.id.toUpperCase()}</p>
-            <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">CRYPTO_ENGINE // V1.2-STABLE</p>
+            <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">SiSecure // v{__APP_VERSION__}</p>
           </div>
           <button className="h-12 px-6 bg-zinc-900/50 hover:bg-red-500/10 rounded-2xl text-zinc-500 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border border-white/5">
             <LogOut className="w-4 h-4" /> Disconnect Node

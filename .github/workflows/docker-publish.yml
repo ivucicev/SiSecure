@@ -14,12 +14,37 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Only for real pushes to main — not tag pushes (those are releases of
+      # an already-bumped version) and not manual dispatch. The `[skip ci]`
+      # in the commit message stops this push from re-triggering the
+      # workflow (GitHub honors it natively), so this doesn't loop.
+      - name: Bump patch version
+        id: bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch --no-git-tag-version
+          git commit -am "chore: bump version to v$(node -p "require('./package.json').version") [skip ci]"
+          git push
+
+      - name: Read app version
+        id: appver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -32,8 +57,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Handles lowercasing the image name (GHCR/Docker require it) and
-      # generates tags: `latest` on main, the short commit sha always, and
-      # a semver tag when a v*.*.* tag is pushed.
+      # generates tags: `latest` on main, the short commit sha always, the
+      # app's package.json version (bumped above on main pushes), and a
+      # semver tag when a v*.*.* tag is pushed.
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -41,6 +67,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=v${{ steps.appver.outputs.version }}
             type=sha,format=short
             type=semver,pattern={{version}}
 
