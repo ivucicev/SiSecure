@@ -88,7 +88,7 @@ docker compose up -d
 docker compose -f docker-compose.ghcr.yml up -d
 ```
 
-Either way, the app is at `http://localhost:8080`. First-time GHCR publishes sometimes default to a private package even on a public repo — if the pull is denied, set the package's visibility to public from the repo's Packages tab on GitHub.
+The build-from-source variant publishes to `http://localhost:8080`. The GHCR variant only `expose`s port 80 on the compose network (no host port mapping) — put it behind your own reverse proxy, or add a `ports:` mapping back in `docker-compose.ghcr.yml` if you want to hit it directly. First-time GHCR publishes sometimes default to a private package even on a public repo — if the pull is denied, set the package's visibility to public from the repo's Packages tab on GitHub.
 
 ## Project structure
 
