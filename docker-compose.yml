@@ -1,0 +1,12 @@
+# Builds the image from this directory. For the prebuilt GHCR image instead,
+# use docker-compose.ghcr.yml.
+services:
+  sisecure:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sisecure:local
+    container_name: sisecure
+    ports:
+      - "8080:80"
+    restart: unless-stopped

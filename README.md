@@ -76,6 +76,20 @@ npm run preview   # preview the production build locally
 npm run lint      # type-check (tsc --noEmit)
 ```
 
+## Docker
+
+Static build served via nginx. A GitHub Actions workflow (`.github/workflows/docker-publish.yml`) builds and pushes the image to GHCR on every push to `main` and on `v*.*.*` tags.
+
+```bash
+# Build from this directory
+docker compose up -d
+
+# Or pull the prebuilt image instead of building
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+Either way, the app is at `http://localhost:8080`. First-time GHCR publishes sometimes default to a private package even on a public repo — if the pull is denied, set the package's visibility to public from the repo's Packages tab on GitHub.
+
 ## Project structure
 
 ```

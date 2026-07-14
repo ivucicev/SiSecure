@@ -1,0 +1,14 @@
+# Pulls the prebuilt image published by .github/workflows/docker-publish.yml
+# instead of building locally. Usage: docker compose -f docker-compose.ghcr.yml up -d
+#
+# Note: on first publish, GHCR packages sometimes default to private even on
+# a public repo — if the pull is denied, open the package's settings on
+# GitHub (Packages tab) and set visibility to public, or `docker login ghcr.io`
+# with a token that has read:packages access.
+services:
+  sisecure:
+    image: ghcr.io/ivucicev/sisecure:latest
+    container_name: sisecure
+    ports:
+      - "8080:80"
+    restart: unless-stopped

@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.git
+.github
+.claude
+*.log
+.env*
+npm-debug.log*
+.DS_Store
