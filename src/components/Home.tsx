@@ -121,7 +121,7 @@ export function Home() {
 
       {/* Main Content - Chat View */}
       <div className={cn(
-        "flex-1 flex flex-col bg-zinc-900/5",
+        "flex-1 min-w-0 flex flex-col bg-zinc-900/5",
         !currentChatId && "hidden md:flex"
       )}>
         <AnimatePresence mode="wait">

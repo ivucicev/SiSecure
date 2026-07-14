@@ -30,6 +30,10 @@
        available for the long-form Landing/Onboarding screens. */
     overflow-x: hidden;
     overscroll-behavior-y: contain;
+    /* Chrome/Android ignore the viewport meta's user-scalable=no for
+       accessibility reasons, so double-tap-to-zoom still fires there
+       unless touch-action explicitly rules it out. */
+    touch-action: manipulation;
   }
 
   #root {
@@ -37,10 +41,12 @@
   }
 
   /* Prevents iOS/Android auto-zooming the viewport when an input is
-     focused — that only kicks in below a 16px font size. `!important`
-     because several inputs set a smaller text-sm/text-xs utility that
-     would otherwise win on specificity. */
-  @media (max-width: 639px) {
+     focused — that only kicks in below a 16px font size. Keyed off
+     pointer:coarse (touchscreens) rather than viewport width so it still
+     applies in landscape or on tablets, where max-width tricks miss it.
+     `!important` because several inputs set a smaller text-sm/text-xs
+     utility that would otherwise win on specificity. */
+  @media (pointer: coarse) {
     input,
     textarea,
     select {

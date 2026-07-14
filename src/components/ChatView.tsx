@@ -490,7 +490,7 @@ export function ChatView() {
                     <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{sender?.displayName || 'Unknown Agent'}</span>
                   </div>
                 )}
-                <div className="relative group/content">
+                <div className="relative group/content min-w-0 max-w-full">
                   <div className={cn(
                     "overflow-hidden rounded-2xl text-sm leading-relaxed",
                     isMe 
