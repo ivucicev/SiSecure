@@ -103,10 +103,15 @@ src/
 - Encrypted local backups are protected with a user-supplied passphrase (AES) — the passphrase never leaves your device either.
 - This project is under active development. Treat it as a strong technical foundation, not yet an audited production security product — see open items below before relying on it for high-stakes threat models.
 
-**Known limitations / roadmap:**
+**Known limitations:**
 - The WebRTC signaling identity (used to route connections) isn't yet cryptographically bound to the Olm identity key — verifying a contact's "Security Fingerprint" out-of-band is recommended for anyone with a serious adversary model.
 - No TURN relay beyond the public broker's shared fallback; connections across some restrictive networks may be unreliable.
-- Multi-device sync and self-destructing messages are on the roadmap, not yet implemented.
+- **Delivery requires overlapping online time.** Since there's no store-and-forward server, a message only reaches its recipient once both of you happen to have the app open at the same moment. If you send while they're offline and then close the app yourself before they return, nothing is left running anywhere to retry it — it waits for the next coincidence. This is inherent to a serverless P2P design, not a bug.
+
+## Roadmap
+
+- **Wake Up** (button already in the UI, not yet functional). Directly addresses the delivery gap above: a one-tap ping that prompts a peer to open SiSecure even if their browser is fully closed — no message content, nothing added to chat history. There's no way to reach a fully-closed app without the browser's own Push service, so this requires the Web Push API plus a small relay server whose only job is forwarding an opaque wake ping. That server never sees message content, but it does see a push subscription and roughly when a wake was sent — a deliberate, disclosed, **opt-in-only** exception to SiSecure's zero-server design. Everything else about the app stays exactly as it is today.
+- Multi-device sync and self-destructing messages are also planned, not yet implemented.
 
 ## License
 

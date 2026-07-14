@@ -29,11 +29,13 @@ import {
   UserPlus,
   Users,
   Boxes,
-  Zap
+  Zap,
+  Bell
 } from 'lucide-react';
 import { cn, formatTime } from '../lib/utils';
 import { Message } from '../lib/db';
 import { GroupInfoModal } from './GroupInfoModal';
+import { WakeUpInfoModal } from './WakeUpInfoModal';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -63,6 +65,7 @@ export function ChatView() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [forwardingId, setForwardingId] = useState<string | null>(null);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
+  const [isWakeUpInfoOpen, setIsWakeUpInfoOpen] = useState(false);
   const [isReactionMenuId, setIsReactionMenuId] = useState<string | null>(null);
   const [selectedForwardingContacts, setSelectedForwardingContacts] = useState<string[]>([]);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -301,13 +304,19 @@ export function ChatView() {
 
       <AnimatePresence>
         {isGroupInfoOpen && group && (
-          <GroupInfoModal 
-            group={group} 
-            onClose={() => setIsGroupInfoOpen(false)} 
+          <GroupInfoModal
+            group={group}
+            onClose={() => setIsGroupInfoOpen(false)}
           />
         )}
       </AnimatePresence>
-      
+
+      <AnimatePresence>
+        {isWakeUpInfoOpen && (
+          <WakeUpInfoModal onClose={() => setIsWakeUpInfoOpen(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="h-20 border-b border-zinc-800/60 flex items-center justify-between px-8 bg-[#0A0A0A]/80 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -382,7 +391,7 @@ export function ChatView() {
               <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">Invite Agent</span>
             </button>
           )}
-          <button 
+          <button
             onClick={() => setIsSearching(!isSearching)}
             className={cn(
               "p-2.5 hover:bg-white/5 rounded-xl transition-colors",
@@ -390,6 +399,13 @@ export function ChatView() {
             )}
           >
             <Search className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setIsWakeUpInfoOpen(true)}
+            title="Wake Up (coming soon)"
+            className="p-2.5 hover:bg-amber-500/10 rounded-xl text-zinc-500 hover:text-amber-500 transition-colors"
+          >
+            <Bell className="w-5 h-5" />
           </button>
           <button className="p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
             <Shield className="w-5 h-5" />
