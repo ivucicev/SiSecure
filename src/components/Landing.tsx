@@ -18,6 +18,7 @@ import { generateId } from '../lib/utils';
 import { generateRoomKey, exportKeyToUrlSafe } from '../lib/tempCrypto';
 
 interface LandingProps {
+  hasProfile: boolean;
   onGetStarted: () => void;
 }
 
@@ -37,7 +38,7 @@ const STEPS = [
   'Every message is encrypted before it ever leaves your device.',
 ];
 
-export function Landing({ onGetStarted }: LandingProps) {
+export function Landing({ hasProfile, onGetStarted }: LandingProps) {
   const [hostingRoom, setHostingRoom] = useState<{ roomId: string; roomKeyB64: string } | null>(null);
 
   const startTempRoom = async () => {
@@ -81,7 +82,7 @@ export function Landing({ onGetStarted }: LandingProps) {
             onClick={onGetStarted}
             className="w-full sm:w-auto h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl flex items-center justify-center gap-2 group transition-all"
           >
-            Get Started
+            {hasProfile ? 'Open App' : 'Get Started'}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
           <button
