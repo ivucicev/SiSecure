@@ -57,8 +57,14 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
     addMessage({ id: generateId(), from: 'system', content, timestamp: Date.now(), system: true });
 
   // ---- Host transport ----
+  // Deliberately keyed off `hostSessionActive` (stable across the
+  // connecting -> active transition), not raw `phase`. Depending on `phase`
+  // directly re-runs this effect the instant `peer.on('open')` calls
+  // `setPhase('active')`, and the cleanup destroys the just-opened peer
+  // before any guest can connect to it.
+  const hostSessionActive = mode === 'host' && (phase === 'connecting' || phase === 'active');
   useEffect(() => {
-    if (mode !== 'host' || phase !== 'connecting') return;
+    if (!hostSessionActive || peerRef.current) return;
     let cancelled = false;
 
     (async () => {
@@ -89,7 +95,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
       usernamesRef.current.clear();
       if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; }
     };
-  }, [mode, phase, roomId, roomKeyB64]);
+  }, [hostSessionActive, roomId, roomKeyB64]);
 
   const handleGuestLeft = (peerId: string) => {
     const leftName = usernamesRef.current.get(peerId);
@@ -138,8 +144,12 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
   };
 
   // ---- Guest transport ----
+  // Same `sessionActive`-not-`phase` reasoning as the host effect above:
+  // `T_WELCOME` flips phase to 'active' mid-flight, and depending on raw
+  // `phase` here would tear down the just-opened connection to the host.
+  const guestSessionActive = mode === 'guest' && (phase === 'connecting' || phase === 'active');
   useEffect(() => {
-    if (mode !== 'guest' || phase !== 'connecting') return;
+    if (!guestSessionActive || peerRef.current) return;
     let cancelled = false;
 
     (async () => {
@@ -184,7 +194,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
       hostConnRef.current = null;
       if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; }
     };
-  }, [mode, phase, roomId, roomKeyB64, username]);
+  }, [guestSessionActive, roomId, roomKeyB64, username]);
 
   const handleGuestData = async (data: any) => {
     const { type, payload } = data || {};
