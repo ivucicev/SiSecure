@@ -80,6 +80,13 @@ export function ChatView() {
   const contact = contacts.find(c => c.publicKey === currentChatId);
   const group = groups.find(g => g.id === currentChatId);
 
+  // Whoever we'd be sending to right now is unreachable — this is exactly the
+  // moment Wake Up (not yet implemented) is meant for, so surface it here
+  // rather than as an always-present, ambiguous toolbar icon.
+  const recipientOffline = group
+    ? !group.members.some(m => m !== profile?.publicKey && contacts.find(c => c.publicKey === m)?.isOnline)
+    : !!contact && !contact.isOnline;
+
   const filteredMessages = useMemo(() => {
     if (!searchQuery) return messages;
     return messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -400,13 +407,6 @@ export function ChatView() {
           >
             <Search className="w-5 h-5" />
           </button>
-          <button
-            onClick={() => setIsWakeUpInfoOpen(true)}
-            title="Wake Up (coming soon)"
-            className="p-2.5 hover:bg-amber-500/10 rounded-xl text-zinc-500 hover:text-amber-500 transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-          </button>
           <button className="p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
             <Shield className="w-5 h-5" />
           </button>
@@ -600,6 +600,19 @@ export function ChatView() {
 
       {/* Input Area */}
       <div className="p-6 bg-[#0A0A0A] border-t border-zinc-800/60">
+        {recipientOffline && (
+          <button
+            onClick={() => setIsWakeUpInfoOpen(true)}
+            className="w-full mb-4 flex items-center gap-3 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/10 hover:border-amber-500/20 rounded-2xl px-5 py-3 text-left transition-all"
+          >
+            <Bell className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="flex-1 text-xs text-zinc-400">
+              <span className="text-zinc-200 font-semibold">{group ? 'No one in this group is online right now.' : `${contact?.displayName} is offline right now.`}</span>
+              {' '}Your message will wait until they reconnect.
+            </span>
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-amber-500">Wake Up</span>
+          </button>
+        )}
         <AnimatePresence>
           {isRecording && (
             <motion.div 
