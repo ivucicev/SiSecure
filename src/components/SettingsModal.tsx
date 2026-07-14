@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Shield, Lock, Database, HardDrive, Trash2, Download, Upload, LogOut, Key, User, Settings, Check, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Upload, LogOut, Key, User, Settings, Check, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { db } from '../lib/db';
 import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
@@ -154,25 +154,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050505]/95 backdrop-blur-xl">
-      <motion.div 
+    <div className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center md:p-4 bg-[#0A0A0A] md:bg-[#050505]/95 md:backdrop-blur-xl">
+      <motion.div
         initial={{ y: 20, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl bg-[#0A0A0A] border border-white/5 rounded-[2.5rem] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl"
+        className="w-full h-full md:h-auto md:max-w-2xl bg-[#0A0A0A] border-0 md:border md:border-white/5 rounded-none md:rounded-[2.5rem] overflow-hidden flex flex-col md:max-h-[90vh] shadow-2xl"
       >
-        <div className="p-8 flex items-center justify-between border-b border-white/5">
-          <h3 className="text-xl font-bold flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/10 rounded-xl">
+        <div className="p-6 sm:p-8 flex items-center justify-between border-b border-white/5 shrink-0">
+          <h3 className="text-xl font-bold flex items-center gap-3 min-w-0">
+            <button onClick={onClose} className="p-2 -ml-2 hover:bg-white/5 rounded-full text-zinc-400 transition-colors md:hidden">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="p-2.5 bg-blue-500/10 rounded-xl hidden sm:flex">
               <Settings className="w-5 h-5 text-blue-500" />
             </div>
-            System Control Center
+            <span className="truncate">System Control Center</span>
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-zinc-500 transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-zinc-500 transition-colors hidden md:block">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-12">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-12">
           {/* Identity Section */}
           <section className="space-y-6">
             <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Secure Identity</h4>
@@ -383,12 +386,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </section>
         </div>
 
-        <div className="p-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <p className="text-[10px] text-zinc-600 font-mono tracking-tighter">NODE_ID // {profile?.id.toUpperCase()}</p>
+        <div className="p-6 sm:p-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex flex-col gap-1 min-w-0">
+            <p className="text-[10px] text-zinc-600 font-mono tracking-tighter truncate">NODE_ID // {profile?.id.toUpperCase()}</p>
             <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">SiSecure // v{__APP_VERSION__}</p>
           </div>
-          <button className="h-12 px-6 bg-zinc-900/50 hover:bg-red-500/10 rounded-2xl text-zinc-500 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border border-white/5">
+          <button className="h-12 px-6 bg-zinc-900/50 hover:bg-red-500/10 rounded-2xl text-zinc-500 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border border-white/5 shrink-0">
             <LogOut className="w-4 h-4" /> Disconnect Node
           </button>
         </div>
