@@ -74,6 +74,7 @@ export function ChatView() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingCancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -154,6 +155,13 @@ export function ChatView() {
       };
 
       mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+
+        if (recordingCancelledRef.current) {
+          audioChunksRef.current = [];
+          return;
+        }
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -162,10 +170,10 @@ export function ChatView() {
           }
         };
         reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
+      recordingCancelledRef.current = false;
       setIsRecording(true);
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
@@ -178,6 +186,16 @@ export function ChatView() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      recordingCancelledRef.current = false;
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      recordingCancelledRef.current = true;
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -625,12 +643,21 @@ export function ChatView() {
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                 <span className="font-mono text-sm">Recording: {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
               </div>
-              <button 
-                onClick={stopRecording}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
-              >
-                Stop & Send
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cancelRecording}
+                  title="Cancel — discard without sending"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Cancel
+                </button>
+                <button
+                  onClick={stopRecording}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
+                >
+                  Stop & Send
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
