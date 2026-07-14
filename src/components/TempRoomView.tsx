@@ -283,7 +283,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="min-h-screen flex flex-col bg-obsidian-950 text-zinc-100"
+      className="min-h-dvh flex flex-col bg-obsidian-950 text-zinc-100"
     >
       {(phase === 'setup') && (
         <div className="flex-1 flex items-center justify-center p-6">
@@ -388,17 +388,17 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-3">
             {messages.map((m) => (
               m.system ? (
                 <div key={m.id} className="text-center">
                   <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{m.content}</span>
                 </div>
               ) : (
-                <div key={m.id} className={cn('flex flex-col max-w-[75%]', m.from === username ? 'ml-auto items-end' : 'items-start')}>
+                <div key={m.id} className={cn('flex flex-col min-w-0 max-w-[88%] sm:max-w-[75%]', m.from === username ? 'ml-auto items-end' : 'items-start')}>
                   <span className="text-[10px] text-zinc-600 mb-1 px-1">{m.from === username ? 'You' : m.from} · {formatTime(m.timestamp)}</span>
                   <div className={cn(
-                    'px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
+                    'px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap [overflow-wrap:anywhere]',
                     m.from === username ? 'bg-amber-600 text-white rounded-br-md' : 'bg-zinc-900 text-zinc-200 border border-white/5 rounded-bl-md'
                   )}>
                     {m.content}

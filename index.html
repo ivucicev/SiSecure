@@ -2,7 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="description" content="A pure peer-to-peer messenger with real end-to-end encryption. No server ever sees your messages, contacts, or metadata." />
+    <meta name="format-detection" content="telephone=no" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <meta name="background-color" content="#0A0A0A" />
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- iOS PWA install support (no separate Web App Manifest support for
+         these until fairly recently, so they're still needed alongside the
+         manifest above). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SiSecure" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <title>SiSecure — Pure P2P Encrypted Messaging</title>
   </head>
   <body>

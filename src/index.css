@@ -14,8 +14,38 @@
 }
 
 @layer base {
+  html {
+    height: 100%;
+    /* iOS bumps the base font up on rotation/zoom otherwise, which fights
+       the fixed layouts below. */
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-obsidian-950 text-zinc-100 font-sans antialiased selection:bg-blue-500/30;
+    height: 100%;
+    /* App-shell screens (Home/ChatView) manage their own internal scroll
+       regions and are exactly one viewport tall — nothing should ever need
+       to scroll the page itself horizontally. Vertical body scroll stays
+       available for the long-form Landing/Onboarding screens. */
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+  }
+
+  #root {
+    min-height: 100%;
+  }
+
+  /* Prevents iOS/Android auto-zooming the viewport when an input is
+     focused — that only kicks in below a 16px font size. `!important`
+     because several inputs set a smaller text-sm/text-xs utility that
+     would otherwise win on specificity. */
+  @media (max-width: 639px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 

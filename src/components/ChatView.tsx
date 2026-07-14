@@ -343,8 +343,8 @@ export function ChatView() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="h-20 border-b border-zinc-800/60 flex items-center justify-between px-8 bg-[#0A0A0A]/80 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+      <header className="h-20 border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
           <button 
             onClick={() => setCurrentChatId(null)}
             className="p-2 hover:bg-white/5 rounded-full md:hidden text-zinc-400"
@@ -435,9 +435,9 @@ export function ChatView() {
       </header>
 
       {/* Message Area */}
-      <div 
+      <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 space-y-6 scroll-smooth"
       >
         <div className="flex justify-center my-6">
           <div className="glass px-4 py-1.5 rounded-full flex items-center gap-2">
@@ -466,7 +466,7 @@ export function ChatView() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               key={msg.id}
               className={cn(
-                "flex items-end gap-3 max-w-[80%] md:max-w-[70%] group relative",
+                "flex items-end gap-2 sm:gap-3 max-w-[88%] sm:max-w-[80%] md:max-w-[70%] group relative min-w-0",
                 isMe ? "ml-auto flex-row-reverse" : "mr-auto"
               )}
             >
@@ -479,9 +479,9 @@ export function ChatView() {
                   )}
                 </div>
               )}
-              
+
               <div className={cn(
-                "flex flex-col space-y-1.5",
+                "flex flex-col space-y-1.5 min-w-0",
                 isMe ? "items-end" : "items-start"
               )}>
                 {group && !isMe && (
@@ -617,7 +617,7 @@ export function ChatView() {
       </div>
 
       {/* Input Area */}
-      <div className="p-6 bg-[#0A0A0A] border-t border-zinc-800/60">
+      <div className="p-3 sm:p-6 bg-[#0A0A0A] border-t border-zinc-800/60">
         {recipientOffline && (
           <button
             onClick={() => setIsWakeUpInfoOpen(true)}
@@ -736,7 +736,7 @@ export function ChatView() {
 
 function MessageContent({ message, isMe }: { message: Message, isMe: boolean }) {
   if (message.type === 'text') {
-    return <div className="px-4 py-3">{message.content}</div>;
+    return <div className="px-4 py-3 break-words whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</div>;
   }
 
   if (message.type === 'image') {
@@ -778,7 +778,7 @@ function VoicePlayer({ url, isMe }: { url: string, isMe: boolean }) {
   };
 
   return (
-    <div className="px-4 py-3 flex items-center gap-4 min-w-[240px]">
+    <div className="px-4 py-3 flex items-center gap-3 sm:gap-4 w-[min(240px,60vw)]">
       <audio 
         src={url} 
         ref={audioRef} 
