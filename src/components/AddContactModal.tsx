@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, QrCode, Camera, Check, Copy, Info, Keyboard, User, Shield } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { generateId, cn } from '../lib/utils';
+import { cn } from '../lib/utils';
 
 export function AddContactModal({ onClose }: { onClose: () => void }) {
   const { profile, addContact, connectToContact } = useSiSecure();
@@ -61,12 +61,8 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
       const [name, publicKey] = data.split('|');
       if (name && publicKey) {
         await addContact({
-          id: generateId(),
           displayName: name,
-          publicKey: publicKey,
-          isOnline: true,
-          addedAt: Date.now(),
-          lastSeen: Date.now()
+          publicKey: publicKey
         });
 
         // Initiate a direct WebRTC connection to the new contact.

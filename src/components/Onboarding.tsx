@@ -4,8 +4,12 @@ import { motion } from 'motion/react';
 import { Shield, ArrowRight, User } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function Onboarding() {
-  const [step, setStep] = useState(1);
+interface OnboardingProps {
+  initialStep?: 1 | 2;
+}
+
+export function Onboarding({ initialStep = 1 }: OnboardingProps) {
+  const [step, setStep] = useState(initialStep);
   const [name, setName] = useState('');
   const { createProfile } = useSiSecure();
 

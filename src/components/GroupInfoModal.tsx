@@ -67,7 +67,9 @@ export function GroupInfoModal({ group, onClose }: { group: Group, onClose: () =
                             {isCurrent ? 'You' : (contact?.displayName || 'Unknown Agent')}
                           </span>
                           {isCreator && (
-                            <ShieldAlert className="w-3 h-3 text-red-500" title="Alliance Founder" />
+                            <span title="Alliance Founder">
+                              <ShieldAlert className="w-3 h-3 text-red-500" />
+                            </span>
                           )}
                         </div>
                         <p className="text-[10px] text-zinc-600 font-mono truncate">{pubKey}</p>

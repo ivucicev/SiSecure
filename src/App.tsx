@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { SiSecureProvider, useSiSecure } from './SiSecureContext';
+import { Landing } from './components/Landing';
 import { Onboarding } from './components/Onboarding';
 import { Home } from './components/Home';
 import { TempRoomView } from './components/TempRoomView';
@@ -22,6 +23,7 @@ function parseRoomHash(hash: string): { roomId: string; key: string } | null {
 function AppContent() {
   const { profile, isLoading } = useSiSecure();
   const [roomFromUrl, setRoomFromUrl] = useState(() => parseRoomHash(window.location.hash));
+  const [entered, setEntered] = useState(false);
 
   if (roomFromUrl) {
     return (
@@ -54,7 +56,11 @@ function AppContent() {
   return (
     <AnimatePresence mode="wait">
       {!profile ? (
-        <Onboarding key="onboarding" />
+        entered ? (
+          <Onboarding key="onboarding" initialStep={2} />
+        ) : (
+          <Landing key="landing" onGetStarted={() => setEntered(true)} />
+        )
       ) : (
         <Home key="home" />
       )}
