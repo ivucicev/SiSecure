@@ -274,7 +274,9 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const contact = await db.contacts.get({ publicKey: m });
         if (!contact) return;
 
-        const cipher = await encryptToContact(myProfile.id, account, contact, JSON.stringify({ sessionKey }));
+        // Group key payloads are always small (well under LARGE_PAYLOAD_THRESHOLD),
+        // so this never returns more than one cipher.
+        const [cipher] = await encryptToContact(myProfile.id, account, contact, JSON.stringify({ sessionKey }));
         conn.send({ type: 'P2P_GROUP_KEY', payload: { groupId, cipher } });
       } catch {
         // Member offline; they'll get the key on a future rotation/reconnect.
@@ -309,6 +311,24 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (type === 'HELLO') {
       await upsertContact(remotePublicKey, data.senderProfile?.displayName, data.olm);
       resolveHelloWaiters(remotePublicKey);
+      return;
+    }
+
+    if (type === 'P2P_SESSION_INIT') {
+      // Establish-only message from encryptToContact's large-first-message
+      // split (see LARGE_PAYLOAD_THRESHOLD) — decrypt just to create the
+      // session so the real P2P_MSG right behind it can use the ordinary
+      // (large-payload-safe) decrypt path instead of create_inbound. Content
+      // is always empty; nothing to store.
+      const myProfile = profileRef.current;
+      const account = olmAccountRef.current;
+      if (account && myProfile) {
+        try {
+          await decryptFromContact(myProfile.id, myProfile.publicKey, account, remotePublicKey, payload.olmType, payload.body);
+        } catch (err) {
+          console.error('[SiSecure] Session-init decrypt failed', err);
+        }
+      }
       return;
     }
 
@@ -736,8 +756,18 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (!identityKey) return; // Their identity key never arrived in time; skip, retry later.
           const contact = await db.contacts.get({ publicKey: target });
           if (!contact) return;
-          const cipher = await encryptToContact(profile.id, account, contact, plaintext);
-          wireContent = JSON.stringify(cipher);
+
+          // encryptToContact returns 2 ciphers when this is a brand-new session's
+          // first message and it's large (e.g. a photo) — libolm can't safely
+          // establish a session directly from a large first message on the
+          // receiving end. Send the small establish-only cipher first, over the
+          // same connection, so their session exists before the real content
+          // arrives.
+          const ciphers = await encryptToContact(profile.id, account, contact, plaintext);
+          for (const establishCipher of ciphers.slice(0, -1)) {
+            conn.send({ type: 'P2P_SESSION_INIT', payload: establishCipher });
+          }
+          wireContent = JSON.stringify(ciphers[ciphers.length - 1]);
         }
 
         const wireMessage: Message = { ...message, content: wireContent, mediaUrl: undefined };

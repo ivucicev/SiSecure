@@ -7,6 +7,15 @@ type OlmSession = InstanceType<typeof Olm.Session>;
 const OTK_TOP_UP_THRESHOLD = 5;
 const OTK_GENERATE_BATCH = 20;
 
+// libolm's WASM build can trap (RangeError deep inside the WASM heap, which
+// then corrupts the whole Olm instance for the rest of the page session) when
+// create_inbound() has to establish a brand-new session directly from a large
+// first message — confirmed failing around ~2MB, so this stays well clear of
+// that with margin. An already-established session's ordinary decrypt() has
+// no such issue at any size tested. Photos/videos/files are always well over
+// this; ordinary text never is.
+const LARGE_PAYLOAD_THRESHOLD = 32 * 1024;
+
 // ---------------------------------------------------------------------------
 // Per-key serialization. Every session type below does an async
 // load-mutate-persist cycle (unpickle from IndexedDB, encrypt/decrypt —
@@ -141,14 +150,20 @@ async function savePairwiseSession(
   await db.olmSessions.put(record);
 }
 
+// Returns one cipher normally, or two when a brand-new session is being
+// established with a large first payload: [establishCipher, realCipher].
+// Callers must send establishCipher (if present) as a P2P_SESSION_INIT the
+// receiver decrypts-and-discards, immediately followed by realCipher as the
+// actual P2P_MSG — see LARGE_PAYLOAD_THRESHOLD for why.
 export async function encryptToContact(
   profileId: string,
   account: OlmAccount,
   contact: Contact,
   plaintext: string
-): Promise<{ olmType: 0 | 1; body: string }> {
+): Promise<Array<{ olmType: 0 | 1; body: string }>> {
   return withLock(`pairwise:${contact.publicKey}`, async () => {
     const existing = await loadPairwiseSession(profileId, contact.publicKey);
+    const ciphers: Array<{ olmType: 0 | 1; body: string }> = [];
     let session: OlmSession;
     let initiatedByMe: boolean;
 
@@ -162,12 +177,19 @@ export async function encryptToContact(
       session = new Olm.Session();
       session.create_outbound(account, contact.olmIdentityKey, contact.olmOneTimeKey.key);
       initiatedByMe = true;
+
+      if (plaintext.length > LARGE_PAYLOAD_THRESHOLD) {
+        const establish = session.encrypt('');
+        ciphers.push({ olmType: establish.type, body: establish.body });
+      }
     }
 
     const cipher = session.encrypt(plaintext);
+    ciphers.push({ olmType: cipher.type, body: cipher.body });
+
     await savePairwiseSession(profileId, contact.publicKey, session, initiatedByMe);
 
-    return { olmType: cipher.type, body: cipher.body };
+    return ciphers;
   });
 }
 
