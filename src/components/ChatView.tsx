@@ -186,7 +186,7 @@ export function ChatView() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !contact) return;
+    if (!file || !currentChatId) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
