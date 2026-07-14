@@ -11,6 +11,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
   const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
+  const [keyCopied, setKeyCopied] = useState(false);
   
   const [passwordModal, setPasswordModal] = useState<{
     type: 'export' | 'import';
@@ -201,10 +202,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                 )}
-                <code className="text-[10px] text-zinc-600 font-mono break-all line-clamp-1 italic mt-1">{profile?.publicKey}</code>
+                <code className="block text-xs text-zinc-300 font-mono break-all mt-1.5 select-all">{profile?.publicKey}</code>
               </div>
-              <button className="p-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl text-zinc-500 border border-white/5 transition-all hidden group-hover:block absolute right-6">
-                <Key className="w-5 h-5" />
+              <button
+                onClick={async () => {
+                  if (!profile?.publicKey) return;
+                  await navigator.clipboard.writeText(profile.publicKey);
+                  setKeyCopied(true);
+                  setTimeout(() => setKeyCopied(false), 1800);
+                }}
+                title="Copy public key"
+                className="p-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-blue-400 border border-white/5 transition-all shrink-0"
+              >
+                {keyCopied ? <Check className="w-5 h-5 text-blue-500" /> : <Key className="w-5 h-5" />}
               </button>
             </div>
           </section>

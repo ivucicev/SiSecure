@@ -13,6 +13,7 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
   const [manualName, setManualName] = useState('');
   const [manualKey, setManualKey] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
 
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
@@ -150,8 +151,17 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
                     Have your contact scan this code to establish a physical P2P handshake.
                   </p>
                 </div>
-                <button className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-zinc-800 text-[10px] font-mono rounded-xl border border-white/5 text-zinc-400 transition-all select-all">
-                  <Copy className="w-3.5 h-3.5" /> ID: {profile?.publicKey.substring(0, 16)}...
+                <button
+                  onClick={async () => {
+                    if (!profile?.publicKey) return;
+                    await navigator.clipboard.writeText(profile.publicKey);
+                    setKeyCopied(true);
+                    setTimeout(() => setKeyCopied(false), 1800);
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-white/5 text-zinc-300 transition-all select-all max-w-full"
+                >
+                  {keyCopied ? <Check className="w-3.5 h-3.5 text-blue-500 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="text-xs font-mono break-all">{keyCopied ? 'Copied' : profile?.publicKey}</span>
                 </button>
               </motion.div>
             ) : view === 'scan' ? (
