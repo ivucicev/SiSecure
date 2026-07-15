@@ -48,6 +48,35 @@
           window.visualViewport.addEventListener('resize', setAppHeight);
           window.visualViewport.addEventListener('scroll', setAppHeight);
         }
+
+        // body is deliberately NOT position:fixed (see index.css) so the
+        // browser's native keyboard-resize reflow can shrink it via
+        // --app-height above. The side effect: iOS's own "scroll the page
+        // to reveal the focused field" behavior is no longer blocked
+        // either, and it fights this app's own fixed-height layout —
+        // every screen already positions its composer/input correctly
+        // once body's height shrinks, so iOS additionally scrolling body
+        // just shoves everything (composer included) off toward the top.
+        // Cancel it: iOS performs that scroll asynchronously after focus,
+        // so resetting on the same tick is too early — a rAF (and a
+        // follow-up on visualViewport's resize/scroll, which fires as the
+        // keyboard animates in) catches it after the fact instead.
+        function resetScroll() {
+          if (window.scrollY !== 0 || window.scrollX !== 0) {
+            window.scrollTo(0, 0);
+          }
+        }
+        document.addEventListener('focusin', function (e) {
+          var t = e.target;
+          if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+            requestAnimationFrame(resetScroll);
+            setTimeout(resetScroll, 50);
+            setTimeout(resetScroll, 300);
+          }
+        });
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', resetScroll);
+        }
       })();
     </script>
   </head>
