@@ -32,16 +32,22 @@
        overflow-y-auto region and inherits height via h-full down this
        body/#root chain rather than re-deriving its own `dvh` value —
        `dvh` is independently computed per-element and can diverge from
-       this fixed-position 100% (observed on real iOS: dvh resolving
+       this fixed-position height (observed on real iOS: dvh resolving
        shorter than the true locked viewport, leaving a dead gap at the
        bottom of the screen). Nothing should ever need body-level scroll.
+       Height comes from --app-height (set in index.html via
+       window.visualViewport, which is the only thing that reliably
+       tracks the real visible area once the on-screen keyboard opens —
+       position:fixed elements don't get resized by the layout viewport
+       shrinking, which left a gap between the composer and the keyboard).
        `touch-action: manipulation` also drops Chrome/Android's
        double-tap-to-zoom, which ignores the viewport meta's
        user-scalable=no for accessibility reasons. */
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100%;
+    height: 100dvh;
+    height: var(--app-height, 100dvh);
     overflow: hidden;
     touch-action: manipulation;
   }

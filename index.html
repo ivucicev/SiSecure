@@ -22,6 +22,30 @@
     <meta name="mobile-web-app-capable" content="yes" />
 
     <title>SiSecure — Pure P2P Encrypted Messaging</title>
+
+    <!-- iOS doesn't reliably resize position:fixed elements when the
+         on-screen keyboard opens — the layout viewport (and CSS units
+         derived from it, dvh included) can stay sized to the full screen,
+         leaving a gap between fixed-position bottom bars and the actual
+         keyboard. window.visualViewport tracks the real visible area
+         including keyboard state, so drive the app's height from that
+         instead. Runs inline, before first paint, to avoid a flash of the
+         wrong height. -->
+    <script>
+      (function () {
+        function setAppHeight() {
+          var vv = window.visualViewport;
+          var h = vv ? vv.height : window.innerHeight;
+          document.documentElement.style.setProperty('--app-height', h + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', setAppHeight);
+          window.visualViewport.addEventListener('scroll', setAppHeight);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
