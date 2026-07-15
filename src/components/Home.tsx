@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -15,12 +15,16 @@ import {
 } from 'lucide-react';
 import { ChatList } from './ChatList';
 import { ChatView } from './ChatView';
-import { AddContactModal } from './AddContactModal';
-import { SettingsModal } from './SettingsModal';
-import { CreateGroupModal } from './CreateGroupModal';
-import { TempRoomView } from './TempRoomView';
 import { generateId, cn } from '../lib/utils';
 import { generateRoomKey, exportKeyToUrlSafe } from '../lib/tempCrypto';
+
+// Each of these pulls in its own heavy, only-sometimes-needed dependency
+// (html5-qrcode for scanning, crypto-js for backup encryption) — lazy so a
+// user who never opens Settings or scans a contact never downloads either.
+const AddContactModal = lazy(() => import('./AddContactModal').then(m => ({ default: m.AddContactModal })));
+const SettingsModal = lazy(() => import('./SettingsModal').then(m => ({ default: m.SettingsModal })));
+const CreateGroupModal = lazy(() => import('./CreateGroupModal').then(m => ({ default: m.CreateGroupModal })));
+const TempRoomView = lazy(() => import('./TempRoomView').then(m => ({ default: m.TempRoomView })));
 
 export function Home() {
   const { profile, currentChatId, setCurrentChatId } = useSiSecure();
@@ -37,12 +41,14 @@ export function Home() {
 
   if (hostingRoom) {
     return (
-      <TempRoomView
-        mode="host"
-        roomId={hostingRoom.roomId}
-        roomKeyB64={hostingRoom.roomKeyB64}
-        onExit={() => setHostingRoom(null)}
-      />
+      <Suspense fallback={null}>
+        <TempRoomView
+          mode="host"
+          roomId={hostingRoom.roomId}
+          roomKeyB64={hostingRoom.roomKeyB64}
+          onExit={() => setHostingRoom(null)}
+        />
+      </Suspense>
     );
   }
 
@@ -160,9 +166,11 @@ export function Home() {
       </div>
 
       {/* Modals */}
-      {isAddModalOpen && <AddContactModal onClose={() => setIsAddModalOpen(false)} />}
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
-      {isCreateGroupOpen && <CreateGroupModal onClose={() => setIsCreateGroupOpen(false)} />}
+      <Suspense fallback={null}>
+        {isAddModalOpen && <AddContactModal onClose={() => setIsAddModalOpen(false)} />}
+        {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
+        {isCreateGroupOpen && <CreateGroupModal onClose={() => setIsCreateGroupOpen(false)} />}
+      </Suspense>
     </div>
   );
 }

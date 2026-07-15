@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -34,8 +34,8 @@ import {
 } from 'lucide-react';
 import { cn, formatTime } from '../lib/utils';
 import { Message } from '../lib/db';
-import { GroupInfoModal } from './GroupInfoModal';
-import { WakeUpInfoModal } from './WakeUpInfoModal';
+const GroupInfoModal = lazy(() => import('./GroupInfoModal').then(m => ({ default: m.GroupInfoModal })));
+const WakeUpInfoModal = lazy(() => import('./WakeUpInfoModal').then(m => ({ default: m.WakeUpInfoModal })));
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -369,20 +369,22 @@ export function ChatView() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isGroupInfoOpen && group && (
-          <GroupInfoModal
-            group={group}
-            onClose={() => setIsGroupInfoOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {isGroupInfoOpen && group && (
+            <GroupInfoModal
+              group={group}
+              onClose={() => setIsGroupInfoOpen(false)}
+            />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {isWakeUpInfoOpen && (
-          <WakeUpInfoModal onClose={() => setIsWakeUpInfoOpen(false)} />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {isWakeUpInfoOpen && (
+            <WakeUpInfoModal onClose={() => setIsWakeUpInfoOpen(false)} />
+          )}
+        </AnimatePresence>
+      </Suspense>
 
       {/* Header */}
       <header className="shrink-0 min-h-20 pt-[max(3.5rem,env(safe-area-inset-top))] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md">
