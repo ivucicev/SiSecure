@@ -202,19 +202,52 @@ export function ChatView() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readAsDataURL = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  // Full-resolution phone camera photos (often several MB, sometimes HEIC on
+  // iOS) are unreliable to send as-is: they can exceed libolm's safe payload
+  // size and Chromium/Firefox can't even render HEIC in an <img> tag.
+  // createImageBitmap decodes whatever the source format is (Safari can read
+  // HEIC) and canvas re-encoding always outputs plain JPEG, downscaled to a
+  // sane chat-photo size. Falls back to the raw file if any of that fails,
+  // so sending never silently blocks.
+  const compressImage = async (file: File, maxDim = 1920, quality = 0.82): Promise<string> => {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      let { width, height } = bitmap;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no-2d-context');
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
+      return canvas.toDataURL('image/jpeg', quality);
+    } catch (err) {
+      console.error('[SiSecure] Image compression failed, sending original file', err);
+      return readAsDataURL(file);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file || !currentChatId) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const type = file.type.startsWith('image/') ? 'image' : 'video';
-      if (currentChatId) {
-        sendMessage(currentChatId, `${type.charAt(0).toUpperCase() + type.slice(1)} attachment`, type as any, reader.result as string, !!group);
-      }
-    };
-    reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    const type = file.type.startsWith('image/') ? 'image' : 'video';
+    const dataUrl = type === 'image' ? await compressImage(file) : await readAsDataURL(file);
+    sendMessage(currentChatId, `${type.charAt(0).toUpperCase() + type.slice(1)} attachment`, type as any, dataUrl, !!group);
   };
 
   return (
