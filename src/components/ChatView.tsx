@@ -77,6 +77,7 @@ export function ChatView() {
   const recordingCancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const contact = contacts.find(c => c.publicKey === currentChatId);
   const group = groups.find(g => g.id === currentChatId);
@@ -98,6 +99,14 @@ export function ChatView() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [filteredMessages]);
+
+  // Composer grows with content up to a cap, then scrolls internally.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
 
   // Mark unseen messages as read
   useEffect(() => {
@@ -126,7 +135,7 @@ export function ChatView() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     
     if (contact) {
@@ -653,19 +662,6 @@ export function ChatView() {
 
       {/* Input Area */}
       <div className="p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
-        {recipientOffline && (
-          <button
-            onClick={() => setIsWakeUpInfoOpen(true)}
-            className="w-full mb-4 flex items-center gap-3 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/10 hover:border-amber-500/20 rounded-2xl px-5 py-3 text-left transition-all"
-          >
-            <Bell className="w-4 h-4 text-amber-500 shrink-0" />
-            <span className="flex-1 text-xs text-zinc-400">
-              <span className="text-zinc-200 font-semibold">{group ? 'No one in this group is online right now.' : `${contact?.displayName} is offline right now.`}</span>
-              {' '}Your message will wait until they reconnect.
-            </span>
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-amber-500">Wake Up</span>
-          </button>
-        )}
         <AnimatePresence>
           {isRecording && (
             <motion.div 
@@ -697,31 +693,33 @@ export function ChatView() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <div className="flex-1 relative flex items-center">
-            <button 
+        <div className="max-w-4xl mx-auto flex items-end gap-2 sm:gap-4">
+          <div className="flex-1 relative flex items-end">
+            <button
               onClick={() => {
                 if (fileInputRef.current) {
                   fileInputRef.current.accept = 'image/*';
                   fileInputRef.current.click();
                 }
               }}
-              className="absolute left-4 text-zinc-500 hover:text-blue-500 transition-colors"
+              className="absolute left-3 sm:left-4 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors"
             >
               <ImageIcon className="w-5 h-5" />
             </button>
-            <button 
+            <button
               onClick={() => {
                 if (fileInputRef.current) {
                   fileInputRef.current.accept = 'video/*,image/*';
                   fileInputRef.current.click();
                 }
               }}
-              className="absolute left-12 text-zinc-500 hover:text-blue-500 transition-colors"
+              className="absolute left-10 sm:left-12 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors"
             >
               <Paperclip className="w-5 h-5" />
             </button>
-            <input 
+            <textarea
+              ref={textareaRef}
+              rows={1}
               value={input}
               onChange={handleInputChange}
               onKeyDown={(e) => {
@@ -730,39 +728,43 @@ export function ChatView() {
                   handleSend();
                 }
               }}
-              placeholder={isRecording ? "Recording voice..." : "Write an encrypted message..."}
+              placeholder={isRecording ? "Recording..." : "Message..."}
               disabled={isRecording}
-              className="w-full bg-zinc-900/50 border-none rounded-2xl py-3 pl-22 pr-12 text-sm focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all font-light"
+              className="w-full max-h-[120px] overflow-y-auto resize-none bg-zinc-900/50 border-none rounded-2xl py-3 pl-20 sm:pl-22 pr-10 sm:pr-12 text-sm leading-relaxed focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all font-light"
             />
-            <button className="absolute right-4 text-zinc-500 hover:text-blue-500 transition-colors">
+            <button className="absolute right-3 sm:right-4 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors">
               <Smile className="w-5 h-5" />
             </button>
           </div>
-          
+
+          {recipientOffline && (
+            <button
+              onClick={() => setIsWakeUpInfoOpen(true)}
+              title={`${group ? 'No one in this group is' : `${contact?.displayName} is`} offline right now — tap to Wake Up`}
+              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 transition-all"
+            >
+              <Bell className="w-5 h-5" />
+            </button>
+          )}
+
           {input.trim() ? (
-            <button 
+            <button
               onClick={handleSend}
-              className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20 transition-all"
+              className="w-12 h-12 shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20 transition-all"
             >
               <Send className="w-5 h-5 rotate-45 -translate-y-0.5" />
             </button>
           ) : (
-            <button 
+            <button
               onClick={startRecording}
               className={cn(
-                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
+                "w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
                 isRecording && "bg-blue-600 text-white animate-pulse"
               )}
             >
               <Mic className="w-5 h-5" />
             </button>
           )}
-        </div>
-        <div className="mt-3 flex justify-center">
-          <div className="flex items-center text-[9px] text-zinc-600 uppercase tracking-widest font-bold">
-            <Lock className="w-3 h-3 mr-1.5 text-blue-500/50" />
-            End-to-End Encrypted via Peer Handshake
-          </div>
         </div>
       </div>
     </div>
