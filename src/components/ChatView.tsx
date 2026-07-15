@@ -271,12 +271,12 @@ export function ChatView() {
 
       <AnimatePresence>
         {deleteConfirmId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
+          <div className="fixed inset-0 z-50 flex justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto bg-black/60 backdrop-blur-sm">
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#121212] border border-white/10 p-6 rounded-3xl max-w-xs w-full shadow-2xl"
+              className="bg-[#121212] border border-white/10 p-6 rounded-3xl max-w-xs w-full my-auto shadow-2xl"
             >
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center text-red-500">
@@ -309,12 +309,12 @@ export function ChatView() {
 
       <AnimatePresence>
         {forwardingId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-            <motion.div 
+          <div className="fixed inset-0 z-50 flex justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto bg-black/60 backdrop-blur-md">
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#0A0A0A] border border-white/5 p-8 rounded-[2.5rem] max-w-sm w-full shadow-2xl space-y-6"
+              className="bg-[#0A0A0A] border border-white/5 p-8 rounded-[2.5rem] max-w-sm w-full my-auto shadow-2xl space-y-6"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold flex items-center gap-2">

@@ -4,11 +4,11 @@ import { Bell, X, ServerOff, Radio, ShieldAlert } from 'lucide-react';
 
 export function WakeUpInfoModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto bg-obsidian-950/90 backdrop-blur-md">
       <motion.div
         initial={{ scale: 0.98, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-md glass rounded-[2.5rem] overflow-hidden shadow-2xl"
+        className="w-full max-w-md my-auto glass rounded-[2.5rem] overflow-hidden shadow-2xl"
       >
         <div className="p-6 flex items-center justify-between border-b border-white/5">
           <h3 className="text-xl font-bold flex items-center gap-3">

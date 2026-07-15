@@ -31,11 +31,11 @@ export function CreateGroupModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/90 backdrop-blur-md">
-      <motion.div 
+    <div className="fixed inset-0 z-50 flex justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto bg-obsidian-950/90 backdrop-blur-md">
+      <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full max-w-sm bg-obsidian-900 border border-white/5 rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl"
+        className="w-full max-w-sm my-auto bg-obsidian-900 border border-white/5 rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl"
       >
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <h3 className="text-xl font-bold flex items-center gap-2">
