@@ -9,6 +9,10 @@ services:
   sisecure:
     image: ghcr.io/ivucicev/sisecure:latest
     container_name: sisecure
+    # Always pull before starting, so a plain `docker compose up -d` picks
+    # up the newest published image instead of silently reusing whatever
+    # was last pulled locally.
+    pull_policy: always
     expose:
       - "80"
     restart: unless-stopped
