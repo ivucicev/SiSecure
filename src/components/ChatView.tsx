@@ -439,11 +439,11 @@ export function ChatView() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 ml-4">
+        <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 shrink-0">
           {group && (
-            <button 
+            <button
               onClick={() => setIsGroupInfoOpen(true)}
-              className="p-2.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-400 transition-colors flex items-center gap-2 px-4 group"
+              className="p-2.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-400 transition-colors flex items-center gap-2 sm:px-4 group"
             >
               <UserPlus className="w-4 h-4" />
               <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">Invite Agent</span>
@@ -458,10 +458,12 @@ export function ChatView() {
           >
             <Search className="w-5 h-5" />
           </button>
-          <button className="p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
+          {/* Not yet wired to anything — dropped on mobile so the contact
+              name isn't squeezed down to a couple of characters. */}
+          <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
             <Shield className="w-5 h-5" />
           </button>
-          <button className="p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
+          <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
