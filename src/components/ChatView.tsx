@@ -376,7 +376,7 @@ export function ChatView() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="min-h-20 pt-[env(safe-area-inset-top)] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md sticky top-0 z-10">
+      <header className="min-h-20 pt-[max(3.5rem,env(safe-area-inset-top))] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
           <button 
             onClick={() => setCurrentChatId(null)}
@@ -652,7 +652,7 @@ export function ChatView() {
       </div>
 
       {/* Input Area */}
-      <div className="p-3 sm:p-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
+      <div className="p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
         {recipientOffline && (
           <button
             onClick={() => setIsWakeUpInfoOpen(true)}

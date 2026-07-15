@@ -335,7 +335,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
 
       {(phase === 'connecting' || phase === 'active') && (
         <>
-          <div className="border-b border-zinc-800/60 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] space-y-4">
+          <div className="border-b border-zinc-800/60 p-5 pt-[max(3.5rem,env(safe-area-inset-top))] space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
@@ -409,7 +409,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] border-t border-zinc-800/60 flex items-center gap-3">
+          <div className="p-5 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-800/60 flex items-center gap-3">
             <input
               type="text"
               value={input}
