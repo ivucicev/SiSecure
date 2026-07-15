@@ -41,7 +41,7 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-obsidian-950">
+      <div className="h-full flex items-center justify-center bg-obsidian-950">
         <motion.div
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ repeat: Infinity, duration: 3 }}

@@ -24,7 +24,7 @@ export function Onboarding({ initialStep = 1 }: OnboardingProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="h-dvh overflow-y-auto flex items-center justify-center p-6 bg-obsidian-950 text-zinc-100"
+      className="h-full overflow-y-auto flex items-center justify-center p-6 bg-obsidian-950 text-zinc-100"
     >
       <div className="w-full max-w-md space-y-12">
         <div className="text-center space-y-6">

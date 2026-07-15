@@ -62,7 +62,7 @@ export function Landing({ onGetStarted }: LandingProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="h-dvh overflow-y-auto bg-obsidian-950 text-zinc-100"
+      className="h-full overflow-y-auto bg-obsidian-950 text-zinc-100"
     >
       {/* Hero */}
       <div className="max-w-3xl mx-auto px-6 pt-24 pb-16 text-center space-y-8">

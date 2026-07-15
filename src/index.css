@@ -29,9 +29,12 @@
        lock, a well-laid-out sticky/static header can still visibly wobble
        during a bounce because the *page* moved under it, not because the
        header itself scrolled. Every screen provides its own internal
-       overflow-y-auto region (Home/ChatView/SettingsModal/TempRoomView's
-       h-dvh + overflow-hidden shells; Landing/Onboarding below) — nothing
-       should ever need body-level scroll.
+       overflow-y-auto region and inherits height via h-full down this
+       body/#root chain rather than re-deriving its own `dvh` value —
+       `dvh` is independently computed per-element and can diverge from
+       this fixed-position 100% (observed on real iOS: dvh resolving
+       shorter than the true locked viewport, leaving a dead gap at the
+       bottom of the screen). Nothing should ever need body-level scroll.
        `touch-action: manipulation` also drops Chrome/Android's
        double-tap-to-zoom, which ignores the viewport meta's
        user-scalable=no for accessibility reasons. */
