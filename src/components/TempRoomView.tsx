@@ -283,7 +283,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="min-h-dvh flex flex-col bg-obsidian-950 text-zinc-100"
+      className="h-dvh overflow-hidden flex flex-col bg-obsidian-950 text-zinc-100"
     >
       {(phase === 'setup') && (
         <div className="flex-1 flex items-center justify-center p-6">
