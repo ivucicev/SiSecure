@@ -54,7 +54,7 @@ export function Home() {
         currentChatId && "hidden md:flex"
       )}>
         {/* Sidebar Header */}
-        <div className="p-6 pb-2 flex flex-col space-y-6">
+        <div className="p-6 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))] flex flex-col space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold tracking-tight">Messages</h1>
             <div className="flex gap-2">
@@ -99,7 +99,7 @@ export function Home() {
         </div>
 
         {/* Profile Footer */}
-        <div className="p-4 border-t border-zinc-800/40 bg-zinc-900/10">
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-zinc-800/40 bg-zinc-900/10">
           <button 
             onClick={() => setIsSettingsOpen(true)}
             className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-all group"
