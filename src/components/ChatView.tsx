@@ -660,10 +660,19 @@ export function ChatView() {
             </motion.div>
           );
         })}
-      </div>
 
-      {/* Input Area */}
-      <div className="p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
+        {/* Input Area — deliberately a sticky child of the scroll
+            container itself, not a separate flex sibling below it. Sibling
+            layout requires every ancestor's height to already account for
+            the on-screen keyboard before the composer lands in the right
+            place, which kept losing that race against iOS on real devices
+            (several rounds of --app-height/visualViewport JS never fully
+            resolved it). Sticky positioning is recalculated natively by
+            the browser on scroll/resize/visualViewport change instead —
+            no JS, no height math, just tracks the visible bottom edge
+            directly. -mx-* cancels this container's own horizontal
+            padding so the full-bleed composer isn't inset by it. */}
+        <div className="sticky bottom-0 -mx-4 sm:-mx-8 -mb-4 sm:-mb-8 p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
         <AnimatePresence>
           {isRecording && (
             <motion.div 
@@ -768,6 +777,7 @@ export function ChatView() {
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
