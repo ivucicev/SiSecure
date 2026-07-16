@@ -60,7 +60,7 @@ export function Home() {
         currentChatId && "hidden md:flex"
       )}>
         {/* Sidebar Header */}
-        <div className="p-6 pb-2 pt-[max(3.5rem,env(safe-area-inset-top))] flex flex-col space-y-6">
+        <div className="p-6 pb-2 pt-[max(1.5rem,env(safe-area-inset-top))] flex flex-col space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold tracking-tight">Messages</h1>
             <div className="flex gap-2">

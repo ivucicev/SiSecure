@@ -160,7 +160,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         animate={{ y: 0, opacity: 1, scale: 1 }}
         className="w-full h-full md:h-auto md:max-w-2xl bg-[#0A0A0A] border-0 md:border md:border-white/5 rounded-none md:rounded-[2.5rem] overflow-hidden flex flex-col md:max-h-[90vh] shadow-2xl"
       >
-        <div className="p-6 sm:p-8 pt-[max(3.5rem,env(safe-area-inset-top))] md:pt-8 flex items-center justify-between border-b border-white/5 shrink-0">
+        <div className="p-6 sm:p-8 pt-[max(1.5rem,env(safe-area-inset-top))] md:pt-8 flex items-center justify-between border-b border-white/5 shrink-0">
           <h3 className="text-xl font-bold flex items-center gap-3 min-w-0">
             <button onClick={onClose} className="p-2 -ml-2 hover:bg-white/5 rounded-full text-zinc-400 transition-colors md:hidden">
               <ArrowLeft className="w-5 h-5" />

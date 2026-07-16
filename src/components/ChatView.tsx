@@ -405,7 +405,7 @@ export function ChatView() {
       </Suspense>
 
       {/* Header */}
-      <header className="shrink-0 min-h-20 pt-[max(3.5rem,env(safe-area-inset-top))] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md">
+      <header className="shrink-0 min-h-20 pt-[env(safe-area-inset-top)] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md">
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
           <button 
             onClick={() => setCurrentChatId(null)}
