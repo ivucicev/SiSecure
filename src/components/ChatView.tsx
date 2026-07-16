@@ -77,7 +77,7 @@ export function ChatView() {
   const recordingCancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const contact = contacts.find(c => c.publicKey === currentChatId);
   const group = groups.find(g => g.id === currentChatId);
@@ -100,6 +100,14 @@ export function ChatView() {
     }
   }, [filteredMessages]);
 
+  // Composer grows with content up to a cap, then scrolls internally.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
+
   // Mark unseen messages as read
   useEffect(() => {
     if (!profile || !currentChatId) return;
@@ -117,9 +125,6 @@ export function ChatView() {
     if (input.trim() && (contact || group)) {
       sendMessage(currentChatId!, input.trim(), 'text', undefined, !!group);
       setInput('');
-      // React doesn't own contentEditable's children, so clearing state
-      // alone leaves the typed text on screen — clear the DOM directly too.
-      if (composerRef.current) composerRef.current.textContent = '';
 
       // Stop typing signal
       if (isTypingRef.current && contact) {
@@ -130,30 +135,8 @@ export function ChatView() {
     }
   };
 
-  // contentEditable instead of <textarea>, deliberately: the on-screen
-  // keyboard's accessory bar (prev/next field arrows + Done button) is
-  // WebKit UI tied to real form elements, not something CSS/JS can hide —
-  // this doesn't remove it, it's a UX experiment on a different axis
-  // entirely, worth trying since a plain <textarea> here caused most of
-  // this session's iOS keyboard/layout issues.
-  //
-  // Two things a controlled <textarea> got for free that contentEditable
-  // doesn't: React can't own its children (state changes wouldn't move
-  // the cursor correctly), so `input` state is read from the DOM via
-  // innerText on every keystroke rather than driving it top-down; and
-  // .textContent on a multi-line contentEditable concatenates lines with
-  // no separator (browsers use <br>/<div> for line structure, not literal
-  // \n) — .innerText is used instead since it respects visual line breaks.
-  const handleComposerInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const text = el.innerText;
-    setInput(text);
-
-    // Deleting the last character can leave a stray <br> behind, which
-    // defeats the CSS `:empty` selector the placeholder depends on.
-    if (!text.trim() && el.innerHTML !== '') {
-      el.innerHTML = '';
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
 
     if (contact) {
       if (!isTypingRef.current) {
@@ -167,40 +150,6 @@ export function ChatView() {
         sendTypingSignal(contact.publicKey, false);
       }, 2000);
     }
-  };
-
-  const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-
-    if (e.shiftKey) {
-      // contentEditable's default Enter handling is inconsistent enough
-      // across browsers to not be worth relying on (confirmed: on at
-      // least one engine it does nothing at all rather than inserting a
-      // <div> or <br>, silently dropping the line break). Insert one
-      // explicitly instead. execCommand is nominally deprecated but still
-      // functional everywhere and, unlike manual Range manipulation, it
-      // fires a real 'input' event so handleComposerInput still runs.
-      e.preventDefault();
-      if (!document.execCommand('insertLineBreak')) {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0);
-          range.deleteContents();
-          const br = document.createElement('br');
-          range.insertNode(br);
-          range.setStartAfter(br);
-          range.setEndAfter(br);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-        // The manual fallback path doesn't fire a native input event.
-        handleComposerInput({ currentTarget: e.currentTarget } as React.FormEvent<HTMLDivElement>);
-      }
-      return;
-    }
-
-    e.preventDefault();
-    handleSend();
   };
 
   const startRecording = async () => {
@@ -782,21 +731,20 @@ export function ChatView() {
             >
               <Paperclip className="w-5 h-5" />
             </button>
-            <div
-              ref={composerRef}
-              contentEditable={!isRecording}
-              suppressContentEditableWarning
-              role="textbox"
-              aria-multiline="true"
-              aria-label="Message"
-              onInput={handleComposerInput}
-              onKeyDown={handleComposerKeyDown}
-              data-placeholder={isRecording ? "Recording..." : "Message..."}
-              className={cn(
-                "w-full max-h-[120px] overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-zinc-900/50 border-none rounded-2xl py-3 pl-20 sm:pl-22 pr-10 sm:pr-12 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-blue-500 text-zinc-300 transition-all font-light",
-                "empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-700 empty:before:pointer-events-none",
-                isRecording && "opacity-50"
-              )}
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={isRecording ? "Recording..." : "Message..."}
+              disabled={isRecording}
+              className="w-full max-h-[120px] overflow-y-auto resize-none bg-zinc-900/50 border-none rounded-2xl py-3 pl-20 sm:pl-22 pr-10 sm:pr-12 text-sm leading-relaxed focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all font-light"
             />
             <button className="absolute right-3 sm:right-4 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors">
               <Smile className="w-5 h-5" />
