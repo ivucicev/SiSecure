@@ -751,7 +751,7 @@ export function ChatView() {
                   onClick={stopRecording}
                   className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
                 >
-                  Stop & Send
+                  Send
                 </button>
               </div>
             </motion.div>
