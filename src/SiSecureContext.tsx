@@ -4,6 +4,7 @@ import { db, type UserProfile, type Contact, type Message, type AppSettings, typ
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateId } from './lib/utils';
 import { initOlm, Olm } from './lib/olm';
+import { encryptField, decryptField, setupPin, lockVault, getVaultPickleKeyMaterial } from './lib/vault';
 import {
   loadOrCreateOlmAccount,
   claimOneTimeKeyForHello,
@@ -13,10 +14,32 @@ import {
   rotateOutboundGroupSession,
   encryptGroupMessage,
   decryptGroupMessage,
-  ingestGroupKey
+  ingestGroupKey,
+  repickleAllSessions
 } from './lib/crypto';
 
 type OlmAccount = InstanceType<typeof Olm.Account>;
+
+// At-rest encryption (src/lib/vault.ts) is separate from, and layered on
+// top of, the P2P wire encryption (Double Ratchet) messages already went
+// through in transit — this is about what sits in Dexie afterward, not
+// about the connection. No-ops (returns the value unchanged) when no PIN
+// is set, so this is safe to call unconditionally on every read/write.
+async function encryptMessageForStorage(message: Message): Promise<Message> {
+  return {
+    ...message,
+    content: await encryptField(message.content),
+    mediaUrl: message.mediaUrl !== undefined ? await encryptField(message.mediaUrl) : undefined
+  };
+}
+
+async function decryptMessageForDisplay(message: Message): Promise<Message> {
+  return {
+    ...message,
+    content: await decryptField(message.content),
+    mediaUrl: message.mediaUrl !== undefined ? await decryptField(message.mediaUrl) : undefined
+  };
+}
 
 interface SiSecureContextType {
   profile: UserProfile | undefined;
@@ -30,6 +53,8 @@ interface SiSecureContextType {
   sendTypingSignal: (recipientPublicKey: string, isTyping: boolean) => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   updateSettings: (data: Partial<AppSettings>) => Promise<void>;
+  enableVaultPin: (pin: string) => Promise<void>;
+  disableVaultPin: () => Promise<void>;
   addContact: (contact: Omit<Contact, 'id' | 'addedAt' | 'lastSeen' | 'isOnline'>) => Promise<string>;
   acceptContact: (contactId: string) => Promise<void>;
   declineContact: (contactId: string) => Promise<void>;
@@ -70,16 +95,14 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!profile || !currentChatId) return [];
 
     const isGroup = await db.groups.get(currentChatId);
-    if (isGroup) {
-      return await db.messages.where('groupId').equals(currentChatId).sortBy('timestamp');
-    }
+    const rows = isGroup
+      ? await db.messages.where('groupId').equals(currentChatId).sortBy('timestamp')
+      : (await db.messages
+          .where('senderPublicKey').equals(currentChatId)
+          .or('recipientPublicKey').equals(currentChatId)
+          .sortBy('timestamp')).filter(m => !m.groupId);
 
-    const allMsgs = await db.messages
-      .where('senderPublicKey').equals(currentChatId)
-      .or('recipientPublicKey').equals(currentChatId)
-      .sortBy('timestamp');
-
-    return allMsgs.filter(m => !m.groupId);
+    return Promise.all(rows.map(decryptMessageForDisplay));
   }
   , [currentChatId, profile?.publicKey]) || [];
 
@@ -372,7 +395,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      await db.messages.put({ ...message, ...decrypted, status: 'delivered' });
+      await db.messages.put(await encryptMessageForStorage({ ...message, ...decrypted, status: 'delivered' }));
       await upsertContact(remotePublicKey);
 
       const conn = connectionsRef.current.get(remotePublicKey);
@@ -486,7 +509,13 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .and(m => (m.pendingTargets || []).includes(targetPublicKey))
       .toArray();
 
-    pending.forEach(msg => { broadcastMessage(msg, !!msg.groupId); });
+    // broadcastMessage builds the actual P2P wire payload from
+    // message.content — it needs the real plaintext, not whatever's
+    // sitting at rest in Dexie.
+    for (const stored of pending) {
+      const msg = await decryptMessageForDisplay(stored);
+      broadcastMessage(msg, !!msg.groupId);
+    }
   };
 
   const onConnectionReady = (conn: DataConnection) => {
@@ -578,7 +607,10 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .and(m => m.senderPublicKey === myProfile.publicKey)
       .toArray();
 
-    stuck.forEach(msg => { broadcastMessage(msg, !!msg.groupId); });
+    for (const stored of stuck) {
+      const msg = await decryptMessageForDisplay(stored);
+      broadcastMessage(msg, !!msg.groupId);
+    }
   };
 
   // Real WebRTC transport: one Peer per identity, signaled via PeerJS's public
@@ -659,6 +691,47 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // Turning the vault PIN on/off has to re-pickle every stored Olm/Megolm
+  // session under the new key (see repickleAllSessions) — pickles aren't
+  // portable across keys the way, say, re-hashing a password would be, this
+  // *is* the re-encryption. Message content/media goes through the same
+  // encryptField/decryptField (src/lib/vault.ts) already wired into every
+  // read/write path elsewhere in this file; enabling/disabling just needs
+  // to walk every existing row once instead of relying on the next natural
+  // read/write to touch it.
+  const enableVaultPin = async (pin: string) => {
+    if (!profile) return;
+    const oldKey = getVaultPickleKeyMaterial(profile.id);
+    const { pinSalt, pinVerifier } = await setupPin(pin);
+    const newKey = getVaultPickleKeyMaterial(profile.id);
+
+    await repickleAllSessions(profile.id, oldKey, newKey);
+
+    const allMessages = await db.messages.toArray();
+    for (const m of allMessages) {
+      await db.messages.put(await encryptMessageForStorage(m));
+    }
+
+    await db.settings.update(settings!.id, { pinEnabled: true, pinSalt, pinVerifier });
+  };
+
+  const disableVaultPin = async () => {
+    if (!profile || !settings?.pinEnabled) return;
+    const oldKey = getVaultPickleKeyMaterial(profile.id);
+
+    // Must decrypt while the key we're about to discard still works.
+    const allMessages = await db.messages.toArray();
+    for (const m of allMessages) {
+      await db.messages.put(await decryptMessageForDisplay(m));
+    }
+
+    lockVault();
+    const newKey = getVaultPickleKeyMaterial(profile.id);
+    await repickleAllSessions(profile.id, oldKey, newKey);
+
+    await db.settings.update(settings.id, { pinEnabled: false });
+  };
+
   // Messages only — contacts, groups, profile, and crypto sessions untouched,
   // conversations keep working normally afterward.
   const lightNuke = async () => {
@@ -724,7 +797,11 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       mediaUrl
     };
 
-    await db.messages.add(message);
+    // `message` itself stays plaintext — broadcastMessage below still needs
+    // it to build the actual P2P wire payload (a separate encryption layer,
+    // the Double Ratchet session, from this at-rest one). Only the copy
+    // written to Dexie is encrypted.
+    await db.messages.add(await encryptMessageForStorage(message));
     broadcastMessage(message, isGroup);
   };
 
@@ -872,8 +949,9 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const forwardMessage = async (messageId: string, recipientPublicKeys: string[]) => {
-    const msg = await db.messages.get(messageId);
-    if (!msg || !profile) return;
+    const stored = await db.messages.get(messageId);
+    if (!stored || !profile) return;
+    const msg = await decryptMessageForDisplay(stored);
 
     for (const pubKey of recipientPublicKeys) {
       await sendMessage(pubKey, msg.content, msg.type, msg.mediaUrl);
@@ -944,6 +1022,8 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       sendTypingSignal,
       updateProfile,
       updateSettings,
+      enableVaultPin,
+      disableVaultPin,
       addContact,
       acceptContact,
       declineContact,

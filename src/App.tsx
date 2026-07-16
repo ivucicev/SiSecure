@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { SiSecureProvider, useSiSecure } from './SiSecureContext';
 import { Home } from './components/Home';
+import { UnlockScreen } from './components/UnlockScreen';
+import { db } from './lib/db';
 import { AnimatePresence, motion } from 'motion/react';
 
 // A returning user with a profile goes straight to Home and never needs any
@@ -39,24 +41,7 @@ function Spinner() {
 
 function AppContent() {
   const { profile, isLoading } = useSiSecure();
-  const [roomFromUrl, setRoomFromUrl] = useState(() => parseRoomHash(window.location.hash));
   const [entered, setEntered] = useState(false);
-
-  if (roomFromUrl) {
-    return (
-      <Suspense fallback={<Spinner />}>
-        <TempRoomView
-          mode="guest"
-          roomId={roomFromUrl.roomId}
-          roomKeyB64={roomFromUrl.key}
-          onExit={() => {
-            window.location.hash = '';
-            setRoomFromUrl(null);
-          }}
-        />
-      </Suspense>
-    );
-  }
 
   if (isLoading) {
     return <Spinner />;
@@ -77,10 +62,60 @@ function AppContent() {
   );
 }
 
+// Gates mounting SiSecureProvider at all when a PIN is configured — Olm
+// account/session loading needs the real vault key already in memory
+// (src/lib/vault.ts) before it unpickles anything, not after. Checks Dexie
+// directly rather than through context, since the context doesn't exist
+// yet at this point.
+function LockGate({ children }: { children: React.ReactNode }) {
+  const [checked, setChecked] = useState(false);
+  const [pinConfig, setPinConfig] = useState<{ pinSalt: string; pinVerifier: string } | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+
+  useEffect(() => {
+    db.settings.get('default').then((s) => {
+      if (s?.pinEnabled && s.pinSalt && s.pinVerifier) {
+        setPinConfig({ pinSalt: s.pinSalt, pinVerifier: s.pinVerifier });
+      }
+      setChecked(true);
+    });
+  }, []);
+
+  if (!checked) return <Spinner />;
+  if (pinConfig && !unlocked) {
+    return <UnlockScreen pinSalt={pinConfig.pinSalt} pinVerifier={pinConfig.pinVerifier} onUnlock={() => setUnlocked(true)} />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
+  // Temp-room guest links deliberately bypass the lock entirely — joining
+  // an ephemeral shared room needs no local identity at all, and a random
+  // guest opening someone else's shared link should never be asked for
+  // the device owner's PIN.
+  const [roomFromUrl, setRoomFromUrl] = useState(() => parseRoomHash(window.location.hash));
+
+  if (roomFromUrl) {
+    return (
+      <Suspense fallback={<Spinner />}>
+        <TempRoomView
+          mode="guest"
+          roomId={roomFromUrl.roomId}
+          roomKeyB64={roomFromUrl.key}
+          onExit={() => {
+            window.location.hash = '';
+            setRoomFromUrl(null);
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   return (
-    <SiSecureProvider>
-      <AppContent />
-    </SiSecureProvider>
+    <LockGate>
+      <SiSecureProvider>
+        <AppContent />
+      </SiSecureProvider>
+    </LockGate>
   );
 }

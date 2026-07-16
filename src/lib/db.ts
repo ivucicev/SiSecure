@@ -107,6 +107,13 @@ export interface AppSettings {
   autoNukeEnabled?: boolean;
   autoNukeLightDays?: number;
   autoNukeFullDays?: number;
+  // App-lock PIN — gates both unlocking the app and deriving the real
+  // Olm pickle key / message-content encryption key (src/lib/vault.ts).
+  // pinVerifier is a ciphertext of a known constant, used to check a
+  // re-entered PIN derives the same key; the PIN itself is never stored.
+  pinEnabled?: boolean;
+  pinSalt?: string;
+  pinVerifier?: string;
 }
 
 export class SiSecureDatabase extends Dexie {

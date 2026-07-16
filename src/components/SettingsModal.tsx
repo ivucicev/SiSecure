@@ -7,11 +7,42 @@ import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { profile, settings, updateProfile, updateSettings, lightNuke, fullNuke } = useSiSecure();
+  const { profile, settings, updateProfile, updateSettings, enableVaultPin, disableVaultPin, lightNuke, fullNuke } = useSiSecure();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
   const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
+
+  const [pinSetupMode, setPinSetupMode] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinBusy, setPinBusy] = useState(false);
+
+  const handleSetPin = async () => {
+    if (newPin.length < 4) { setPinError('PIN must be at least 4 digits.'); return; }
+    if (newPin !== confirmPin) { setPinError('PINs do not match.'); return; }
+    setPinBusy(true);
+    try {
+      await enableVaultPin(newPin);
+      setPinSetupMode(false);
+      setNewPin('');
+      setConfirmPin('');
+      setPinError('');
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const handleDisablePin = async () => {
+    if (!confirm('Disable PIN lock? Your identity, sessions, and messages will be re-encrypted back to a device-only key — nothing is lost, but the PIN will no longer be required to open the app.')) return;
+    setPinBusy(true);
+    try {
+      await disableVaultPin();
+    } finally {
+      setPinBusy(false);
+    }
+  };
 
   const [passwordModal, setPasswordModal] = useState<{
     type: 'export' | 'import';
@@ -378,10 +409,61 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="h-px bg-white/5 mx-6" />
               <ToggleRow
                 label="Biometric Barrier"
-                desc="Lock the application access behind your device authentication flow." 
+                desc="Lock the application access behind your device authentication flow."
                 on={settings?.biometricLock || false}
                 onChange={(val) => updateSettings({ biometricLock: val })}
               />
+              <div className="h-px bg-white/5 mx-6" />
+              <ToggleRow
+                label="PIN Lock & Vault Encryption"
+                desc="Require a PIN to open the app. Your identity, sessions, and message history are encrypted at rest with a key derived from it — without the PIN, none of it is readable, including by anyone with direct access to this device's storage."
+                on={settings?.pinEnabled || false}
+                onChange={(val) => {
+                  if (val) {
+                    setPinSetupMode(true);
+                  } else {
+                    handleDisablePin();
+                  }
+                }}
+              />
+              {pinSetupMode && (
+                <div className="px-6 pb-6 pt-2 space-y-3">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoFocus
+                    placeholder="New PIN (min. 4 digits)"
+                    value={newPin}
+                    onChange={(e) => { setNewPin(e.target.value); setPinError(''); }}
+                    className="w-full h-12 bg-zinc-900/50 border border-white/5 rounded-2xl px-4 text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700 placeholder:tracking-normal"
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Confirm PIN"
+                    value={confirmPin}
+                    onChange={(e) => { setConfirmPin(e.target.value); setPinError(''); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSetPin()}
+                    className="w-full h-12 bg-zinc-900/50 border border-white/5 rounded-2xl px-4 text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700 placeholder:tracking-normal"
+                  />
+                  {pinError && <p className="text-red-500 text-xs text-center">{pinError}</p>}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setPinSetupMode(false); setNewPin(''); setConfirmPin(''); setPinError(''); }}
+                      className="flex-1 h-11 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-bold uppercase transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSetPin}
+                      disabled={pinBusy}
+                      className="flex-1 h-11 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase transition-all"
+                    >
+                      {pinBusy ? 'Encrypting...' : 'Set PIN'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>

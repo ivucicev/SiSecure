@@ -1,6 +1,7 @@
 import olmJsUrl from '@matrix-org/olm/olm.js?url';
 import olmWasmUrl from '@matrix-org/olm/olm.wasm?url';
 import type OlmType from '@matrix-org/olm';
+import { getVaultPickleKeyMaterial } from './vault';
 
 // @matrix-org/olm's olm.js does an undeclared global assignment internally
 // (`OLM_OPTIONS = opts` inside its own init()), which only works in sloppy
@@ -38,13 +39,13 @@ export function initOlm(): Promise<void> {
   return olmReadyPromise;
 }
 
-// Not a secret and not an additional security layer — Olm's pickle()/unpickle() API
-// requires *some* passphrase-shaped argument to serialize session state to IndexedDB.
-// This app's trust boundary is already "the device" (privateKey and decrypted message
-// content are already stored in plaintext in IndexedDB per PRODUCT_SPEC's Local
-// Sovereignty model), so this fixed, non-secret key only satisfies the API shape.
+// Real, PIN-derived secret material when the user has set up a vault PIN
+// (src/lib/vault.ts) — otherwise the same fixed, non-secret placeholder as
+// before (Olm's pickle()/unpickle() API requires *some* passphrase-shaped
+// argument regardless; without a PIN there's no secret to derive one from,
+// so this only satisfies the API shape, same as it always did).
 export function pickleKeyFor(profileId: string): string {
-  return `sisecure-local-pickle:${profileId}`;
+  return getVaultPickleKeyMaterial(profileId);
 }
 
 export { Olm };

@@ -377,3 +377,51 @@ export async function decryptGroupMessage(
     return result.plaintext;
   });
 }
+
+// ---------------------------------------------------------------------------
+// Re-pickling everything under a different key — used when turning the vault
+// PIN on/off (src/lib/vault.ts) or changing it. Pickles aren't tied to a
+// specific key the way a password-hash is; Olm's pickle()/unpickle() will
+// happily unpickle with any key you unpickled it with last and re-pickle
+// with any other, so this is just "decrypt everything with the old key,
+// re-encrypt with the new one" applied to every stored session plus the
+// account itself. Takes explicit old/new key strings rather than reading
+// vault.ts's ambient state, so the caller controls exactly when each applies
+// (typically: read the old key, flip the vault state, read the new key,
+// then call this — see SettingsModal.tsx).
+export async function repickleAllSessions(profileId: string, oldKey: string, newKey: string): Promise<void> {
+  const profile = await db.profile.get(profileId);
+  if (profile?.olmAccountPickle) {
+    const account = new Olm.Account();
+    account.unpickle(oldKey, profile.olmAccountPickle);
+    await db.profile.update(profileId, { olmAccountPickle: account.pickle(newKey) });
+  }
+
+  const pairwiseRecords = await db.olmSessions.toArray();
+  for (const record of pairwiseRecords) {
+    const session = new Olm.Session();
+    session.unpickle(oldKey, record.pickle);
+    const pickle = session.pickle(newKey);
+    await db.olmSessions.put({ ...record, pickle });
+    const cached = pairwiseCache.get(record.contactPublicKey);
+    if (cached) cached.session = session;
+  }
+
+  const outboundRecords = await db.megolmOutboundSessions.toArray();
+  for (const record of outboundRecords) {
+    const session = new Olm.OutboundGroupSession();
+    session.unpickle(oldKey, record.pickle);
+    const pickle = session.pickle(newKey);
+    await db.megolmOutboundSessions.put({ ...record, pickle });
+    megolmOutboundCache.set(record.groupId, session);
+  }
+
+  const inboundRecords = await db.megolmInboundSessions.toArray();
+  for (const record of inboundRecords) {
+    const session = new Olm.InboundGroupSession();
+    session.unpickle(oldKey, record.pickle);
+    const pickle = session.pickle(newKey);
+    await db.megolmInboundSessions.put({ ...record, pickle });
+    megolmInboundCache.set(record.id, session);
+  }
+}
