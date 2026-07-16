@@ -1,16 +1,26 @@
 import { useEffect, useState } from 'react';
 
-// Visit the app with ?debug=1 to show this. Exists because several rounds of
-// mobile-viewport/keyboard fixes were shipped on reasoning about iOS
-// behavior alone, with no way to see what was actually happening on the
-// reporting device — each fix layered a new guess on the last instead of
-// converging. This gives real numbers to screenshot instead.
+const STORAGE_KEY = 'sisecure_debug_overlay';
+
+// Visit the app with ?debug=1 once (in Safari — an installed PWA launches
+// from a fixed start_url with no way to add a query param to it) to show
+// this from then on, including from the home-screen icon: the flag is
+// persisted to localStorage, which iOS shares between Safari and an
+// Add-to-Home-Screen app for the same origin. ?debug=0 clears it again.
+// Exists because several rounds of mobile-viewport/keyboard fixes were
+// shipped on reasoning about iOS behavior alone, with no way to see what
+// was actually happening on the reporting device — each fix layered a new
+// guess on the last instead of converging. This gives real numbers to
+// screenshot instead.
 export function DebugOverlay() {
   const [enabled, setEnabled] = useState(false);
   const [metrics, setMetrics] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setEnabled(new URLSearchParams(window.location.search).get('debug') === '1');
+    const param = new URLSearchParams(window.location.search).get('debug');
+    if (param === '1') localStorage.setItem(STORAGE_KEY, '1');
+    if (param === '0') localStorage.removeItem(STORAGE_KEY);
+    setEnabled(param === '1' || localStorage.getItem(STORAGE_KEY) === '1');
   }, []);
 
   useEffect(() => {
