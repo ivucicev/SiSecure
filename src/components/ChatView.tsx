@@ -94,11 +94,29 @@ export function ChatView() {
     return messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
 
-  useEffect(() => {
+  const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [filteredMessages]);
+
+  // The message list only re-scrolled when the messages array itself
+  // changed — not when the on-screen keyboard opens and reflows the
+  // layout around it. First time focusing the composer in a chat, that
+  // left the scroll position stuck wherever it was before the keyboard
+  // pushed everything around, making the message list look empty/scrolled
+  // to the wrong spot until a new message re-triggered the effect above.
+  // visualViewport's resize event fires as the keyboard animates in/out;
+  // re-scroll on that too, plus directly on focus with a short delay for
+  // the keyboard animation to actually finish.
+  useEffect(() => {
+    window.visualViewport?.addEventListener('resize', scrollToBottom);
+    return () => window.visualViewport?.removeEventListener('resize', scrollToBottom);
+  }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
   useEffect(() => {
@@ -736,6 +754,10 @@ export function ChatView() {
               rows={1}
               value={input}
               onChange={handleInputChange}
+              onFocus={() => {
+                scrollToBottom();
+                setTimeout(scrollToBottom, 350);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
