@@ -386,7 +386,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </section>
         </div>
 
-        <div className="p-6 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between gap-4 shrink-0">
+        <div className="p-6 sm:p-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between gap-4 shrink-0">
           <div className="flex flex-col gap-1 min-w-0">
             <p className="text-[10px] text-zinc-600 font-mono tracking-tighter truncate">NODE_ID // {profile?.id.toUpperCase()}</p>
             <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">SiSecure // v{__APP_VERSION__}</p>

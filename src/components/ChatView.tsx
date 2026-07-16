@@ -675,7 +675,7 @@ export function ChatView() {
           of content length, so a composer placed after it as a normal
           sibling is always at the visual bottom — no scroll-dependence,
           no edge case for short chats. */}
-      <div className="p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
+      <div className="p-3 sm:p-6 bg-[#0A0A0A] border-t border-zinc-800/60">
         <AnimatePresence>
           {isRecording && (
             <motion.div 

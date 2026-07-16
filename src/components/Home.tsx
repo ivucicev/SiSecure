@@ -105,7 +105,7 @@ export function Home() {
         </div>
 
         {/* Profile Footer */}
-        <div className="p-4 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-800/40 bg-zinc-900/10">
+        <div className="p-4 border-t border-zinc-800/40 bg-zinc-900/10">
           <button 
             onClick={() => setIsSettingsOpen(true)}
             className="w-full flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-all group"

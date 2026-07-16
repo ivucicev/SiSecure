@@ -409,7 +409,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-5 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-800/60 flex items-center gap-3">
+          <div className="p-5 border-t border-zinc-800/60 flex items-center gap-3">
             <input
               type="text"
               value={input}
