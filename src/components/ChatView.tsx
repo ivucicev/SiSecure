@@ -114,8 +114,19 @@ export function ChatView() {
   // re-scroll on that too, plus directly on focus with a short delay for
   // the keyboard animation to actually finish.
   useEffect(() => {
-    window.visualViewport?.addEventListener('resize', scrollToBottom);
-    return () => window.visualViewport?.removeEventListener('resize', scrollToBottom);
+    // A resize event firing doesn't guarantee the layout has *finished*
+    // reflowing to its new (keyboard-open) size yet — scrolling to
+    // scrollHeight against a clientHeight that hasn't settled to its
+    // final value yet lands short of true bottom once it does settle,
+    // which is exactly the gap between the last message and the composer
+    // reported here. Re-run once more shortly after each resize as a
+    // follow-up, same as the focus handler already does.
+    const onResize = () => {
+      scrollToBottom();
+      setTimeout(scrollToBottom, 350);
+    };
+    window.visualViewport?.addEventListener('resize', onResize);
+    return () => window.visualViewport?.removeEventListener('resize', onResize);
   }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
