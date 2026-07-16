@@ -120,6 +120,7 @@ export function Home() {
                 <p className="text-[10px] text-zinc-500 font-mono">ID: {profile?.id.substring(0, 8)}</p>
               </div>
             </div>
+            <p className="text-[9px] text-zinc-700 font-mono uppercase shrink-0">v{__APP_VERSION__}</p>
             <Settings className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400" />
           </button>
         </div>
