@@ -6,6 +6,7 @@
 import { useState, Suspense, lazy } from 'react';
 import { SiSecureProvider, useSiSecure } from './SiSecureContext';
 import { Home } from './components/Home';
+import { DebugOverlay } from './components/DebugOverlay';
 import { AnimatePresence, motion } from 'motion/react';
 
 // A returning user with a profile goes straight to Home and never needs any
@@ -80,6 +81,7 @@ function AppContent() {
 export default function App() {
   return (
     <SiSecureProvider>
+      <DebugOverlay />
       <AppContent />
     </SiSecureProvider>
   );

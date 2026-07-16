@@ -23,30 +23,17 @@
 
   body {
     @apply bg-obsidian-950 text-zinc-100 font-sans antialiased selection:bg-blue-500/30;
-    /* Locks the page itself so it can never scroll or rubber-band —
-       iOS's elastic overscroll applies to whatever the outermost
-       scrollable context is. overflow:hidden is enough for this; deliberately
-       NOT position:fixed — that anchors body to the layout viewport instead
-       of participating in normal reflow, and on this device it stopped body
-       from resizing at all when the on-screen keyboard opened (even with
-       --app-height driven by window.visualViewport in index.html), leaving
-       a gap between the composer and the keyboard. Plain overflow:hidden
-       still blocks bounce/scroll but lets the browser's own keyboard-resize
-       reflow apply to body like any normal block element, with --app-height
-       as a belt-and-suspenders measurement on top of that.
-       Every screen provides its own internal overflow-y-auto region and
-       inherits height via h-full down this body/#root chain rather than
-       re-deriving its own `dvh` value — `dvh` is independently computed
-       per-element and can diverge from this locked height (observed on
-       real iOS: dvh resolving shorter than the true viewport, leaving a
-       dead gap at the bottom of the screen). Nothing should ever need
-       body-level scroll.
-       `touch-action: manipulation` also drops Chrome/Android's
-       double-tap-to-zoom, which ignores the viewport meta's
-       user-scalable=no for accessibility reasons. */
+    /* Simplest possible baseline after several rounds of JS/CSS layering
+       (position:fixed, --app-height driven by visualViewport, focus/blur
+       scroll resets) kept compounding into new regressions instead of
+       converging. Plain height:100dvh, no JS — dvh is spec'd to track the
+       real visible area including the iOS keyboard on its own (supported
+       since iOS 15.4). overflow:hidden blocks bounce/scroll without the
+       side effects position:fixed had. If this still isn't right on a
+       given device, the fix needs actual data from that device (see the
+       ?debug=1 overlay in main.tsx) — not another guess layered on top. */
     width: 100%;
     height: 100dvh;
-    height: var(--app-height, 100dvh);
     overflow: hidden;
     touch-action: manipulation;
   }
