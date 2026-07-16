@@ -12,6 +12,16 @@ export interface Contact {
   // pairwise Double Ratchet session, unrelated to the `publicKey` routing id above.
   olmIdentityKey?: string;
   olmOneTimeKey?: { keyId: string; key: string };
+  // 'accepted' when you deliberately added them (QR/manual) or approved an
+  // inbound request; 'pending' when someone connected to you first and you
+  // haven't reviewed them yet — anyone with your public key can otherwise
+  // silently add themselves as a contact. Absent on contacts created before
+  // this field existed, treated as 'accepted' for backward compatibility.
+  status?: 'pending' | 'accepted';
+  // Set once you've compared the safety number with this contact out-of-band
+  // and confirmed it matches — mitigates a compromised signaling broker
+  // redirecting the initial connection before the Double Ratchet handshake.
+  verified?: boolean;
 }
 
 export interface Message {

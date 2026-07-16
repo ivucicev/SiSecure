@@ -36,6 +36,7 @@ import { cn, formatTime } from '../lib/utils';
 import { Message } from '../lib/db';
 const GroupInfoModal = lazy(() => import('./GroupInfoModal').then(m => ({ default: m.GroupInfoModal })));
 const WakeUpInfoModal = lazy(() => import('./WakeUpInfoModal').then(m => ({ default: m.WakeUpInfoModal })));
+const VerifyContactModal = lazy(() => import('./VerifyContactModal').then(m => ({ default: m.VerifyContactModal })));
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -66,6 +67,7 @@ export function ChatView() {
   const [forwardingId, setForwardingId] = useState<string | null>(null);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
   const [isWakeUpInfoOpen, setIsWakeUpInfoOpen] = useState(false);
+  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
   const [isReactionMenuId, setIsReactionMenuId] = useState<string | null>(null);
   const [selectedForwardingContacts, setSelectedForwardingContacts] = useState<string[]>([]);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -413,6 +415,12 @@ export function ChatView() {
             <WakeUpInfoModal onClose={() => setIsWakeUpInfoOpen(false)} />
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {isVerifyOpen && contact && (
+            <VerifyContactModal contact={contact} onClose={() => setIsVerifyOpen(false)} />
+          )}
+        </AnimatePresence>
       </Suspense>
 
       {/* Header */}
@@ -444,9 +452,13 @@ export function ChatView() {
                   <h3 className="font-semibold text-zinc-100 truncate">{contact?.displayName || group?.name}</h3>
                   <span className={cn(
                     "shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-tighter",
-                    group ? "bg-purple-500/10 text-purple-500 border-purple-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                    group
+                      ? "bg-purple-500/10 text-purple-500 border-purple-500/20"
+                      : contact?.verified
+                        ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
                   )}>
-                    {group ? 'Peer Group' : 'Verified'}
+                    {group ? 'Peer Group' : contact?.verified ? 'Verified' : 'Unverified'}
                   </span>
                 </div>
                 {contact && typingStatus[contact.publicKey] ? (
@@ -498,11 +510,20 @@ export function ChatView() {
           >
             <Search className="w-5 h-5" />
           </button>
+          {contact && (
+            <button
+              onClick={() => setIsVerifyOpen(true)}
+              title="Verify contact"
+              className={cn(
+                "p-2.5 hover:bg-white/5 rounded-xl transition-colors",
+                contact.verified ? "text-blue-500" : "text-amber-500"
+              )}
+            >
+              <Shield className="w-5 h-5" />
+            </button>
+          )}
           {/* Not yet wired to anything — dropped on mobile so the contact
               name isn't squeezed down to a couple of characters. */}
-          <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
-            <Shield className="w-5 h-5" />
-          </button>
           <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
             <MoreVertical className="w-5 h-5" />
           </button>

@@ -31,6 +31,9 @@ interface SiSecureContextType {
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   updateSettings: (data: Partial<AppSettings>) => Promise<void>;
   addContact: (contact: Omit<Contact, 'id' | 'addedAt' | 'lastSeen' | 'isOnline'>) => Promise<string>;
+  acceptContact: (contactId: string) => Promise<void>;
+  declineContact: (contactId: string) => Promise<void>;
+  verifyContact: (contactId: string) => Promise<void>;
   connectToContact: (targetPublicKey: string) => void;
   sendMessage: (recipientPublicKey: string, content: string, type?: Message['type'], mediaUrl?: string, isGroup?: boolean) => Promise<void>;
   createGroup: (name: string, members: string[]) => Promise<string>;
@@ -225,6 +228,13 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const existing = await db.contacts.get({ publicKey });
     if (!existing) {
+      // upsertContact only ever runs for contacts *we* didn't deliberately
+      // add ourselves (that path is addContact, below, which marks
+      // 'accepted' immediately) — someone connecting to us and sending a
+      // HELLO, or a group invite from someone not already a contact.
+      // Anyone with our public key can otherwise silently add themselves;
+      // 'pending' keeps them out of the visible contact list / chat until
+      // we explicitly review and accept them.
       await db.contacts.add({
         id: generateId(),
         displayName: displayName || publicKey.slice(0, 12),
@@ -232,6 +242,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isOnline: true,
         addedAt: Date.now(),
         lastSeen: Date.now(),
+        status: 'pending',
         ...olmFields
       });
     } else {
@@ -673,9 +684,25 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id,
       addedAt: Date.now(),
       lastSeen: Date.now(),
-      isOnline: false
+      isOnline: false,
+      // A deliberate action (scanned their QR / typed their key) — trusted
+      // immediately, unlike a contact that appears because someone else
+      // connected to us first (see upsertContact).
+      status: 'accepted'
     });
     return id;
+  };
+
+  const acceptContact = async (contactId: string) => {
+    await db.contacts.update(contactId, { status: 'accepted' });
+  };
+
+  const declineContact = async (contactId: string) => {
+    await db.contacts.delete(contactId);
+  };
+
+  const verifyContact = async (contactId: string) => {
+    await db.contacts.update(contactId, { verified: true });
   };
 
   const connectToContact = (targetPublicKey: string) => {
@@ -918,6 +945,9 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updateProfile,
       updateSettings,
       addContact,
+      acceptContact,
+      declineContact,
+      verifyContact,
       connectToContact,
       sendMessage,
       createGroup,
