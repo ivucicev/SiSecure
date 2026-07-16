@@ -77,6 +77,23 @@
         if (window.visualViewport) {
           window.visualViewport.addEventListener('resize', resetScroll);
         }
+
+        // visualViewport's resize event reliably fires when the keyboard
+        // *opens* (shrinking --app-height correctly) but can be flaky
+        // about firing again when it *closes* — leaving --app-height
+        // stuck at the smaller, keyboard-open value even after the
+        // keyboard is dismissed. That leaves a keyboard-sized dead gap at
+        // the bottom of every screen from then on, since body still
+        // thinks it's shorter than it actually is. Re-measure explicitly
+        // on blur as a backup, with a delay for the keyboard's own close
+        // animation to finish first.
+        document.addEventListener('focusout', function (e) {
+          var t = e.target;
+          if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+            setTimeout(setAppHeight, 100);
+            setTimeout(setAppHeight, 400);
+          }
+        });
       })();
     </script>
   </head>
