@@ -102,6 +102,23 @@ export function ChatView() {
     }
   };
 
+  // A single scrollToBottom() right after a resize/focus event isn't
+  // reliable — the layout may not have finished reflowing to its final
+  // (keyboard-open) size yet, and one fixed delay (previously 350ms)
+  // guessed wrong on some devices, still landing short of true bottom.
+  // Poll instead of guessing a single magic number: re-run every 100ms
+  // for up to 900ms, which reliably catches whatever point the keyboard
+  // animation actually finishes at instead of assuming a fixed duration.
+  const scrollToBottomSettled = () => {
+    scrollToBottom();
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      scrollToBottom();
+      elapsed += 100;
+      if (elapsed >= 900) clearInterval(interval);
+    }, 100);
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [filteredMessages]);
@@ -112,23 +129,10 @@ export function ChatView() {
   // left the scroll position stuck wherever it was before the keyboard
   // pushed everything around, making the message list look empty/scrolled
   // to the wrong spot until a new message re-triggered the effect above.
-  // visualViewport's resize event fires as the keyboard animates in/out;
-  // re-scroll on that too, plus directly on focus with a short delay for
-  // the keyboard animation to actually finish.
+  // visualViewport's resize event fires as the keyboard animates in/out.
   useEffect(() => {
-    // A resize event firing doesn't guarantee the layout has *finished*
-    // reflowing to its new (keyboard-open) size yet — scrolling to
-    // scrollHeight against a clientHeight that hasn't settled to its
-    // final value yet lands short of true bottom once it does settle,
-    // which is exactly the gap between the last message and the composer
-    // reported here. Re-run once more shortly after each resize as a
-    // follow-up, same as the focus handler already does.
-    const onResize = () => {
-      scrollToBottom();
-      setTimeout(scrollToBottom, 350);
-    };
-    window.visualViewport?.addEventListener('resize', onResize);
-    return () => window.visualViewport?.removeEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', scrollToBottomSettled);
+    return () => window.visualViewport?.removeEventListener('resize', scrollToBottomSettled);
   }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
@@ -786,10 +790,7 @@ export function ChatView() {
               rows={1}
               value={input}
               onChange={handleInputChange}
-              onFocus={() => {
-                scrollToBottom();
-                setTimeout(scrollToBottom, 350);
-              }}
+              onFocus={scrollToBottomSettled}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
