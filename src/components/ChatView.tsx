@@ -501,7 +501,7 @@ export function ChatView() {
       {/* Message Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 space-y-6 scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 pb-[3px] space-y-6 scroll-smooth"
       >
         <div className="flex justify-center my-6">
           <div className="glass px-4 py-1.5 rounded-full flex items-center gap-2">
@@ -693,7 +693,7 @@ export function ChatView() {
           of content length, so a composer placed after it as a normal
           sibling is always at the visual bottom — no scroll-dependence,
           no edge case for short chats. */}
-      <div className="p-3 sm:p-6 bg-[#0A0A0A] border-t border-zinc-800/60">
+      <div className="p-3 sm:p-6 pb-0 bg-[#0A0A0A] border-t border-zinc-800/60">
         <AnimatePresence>
           {isRecording && (
             <motion.div 
