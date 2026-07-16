@@ -660,19 +660,22 @@ export function ChatView() {
             </motion.div>
           );
         })}
+      </div>
 
-        {/* Input Area — deliberately a sticky child of the scroll
-            container itself, not a separate flex sibling below it. Sibling
-            layout requires every ancestor's height to already account for
-            the on-screen keyboard before the composer lands in the right
-            place, which kept losing that race against iOS on real devices
-            (several rounds of --app-height/visualViewport JS never fully
-            resolved it). Sticky positioning is recalculated natively by
-            the browser on scroll/resize/visualViewport change instead —
-            no JS, no height math, just tracks the visible bottom edge
-            directly. -mx-* cancels this container's own horizontal
-            padding so the full-bleed composer isn't inset by it. */}
-        <div className="sticky bottom-0 -mx-4 sm:-mx-8 -mb-4 sm:-mb-8 p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
+      {/* Input Area — a plain flex sibling after the scrollable message
+          list, not nested inside it. A prior attempt made this sticky
+          *inside* the scroll container on the theory that sticky tracks
+          the visible viewport better than height math on iOS — true when
+          scrolled, but sticky only pins once you scroll past an element's
+          natural position. On a short conversation the message list never
+          needs to scroll, so the composer just sat at its natural
+          position right after the last message — nowhere near the bottom
+          of the screen, leaving a large empty gap below it. flex-1 on the
+          message list above always fills the available height regardless
+          of content length, so a composer placed after it as a normal
+          sibling is always at the visual bottom — no scroll-dependence,
+          no edge case for short chats. */}
+      <div className="p-3 sm:p-6 pb-[max(2rem,env(safe-area-inset-bottom))] bg-[#0A0A0A] border-t border-zinc-800/60">
         <AnimatePresence>
           {isRecording && (
             <motion.div 
@@ -777,7 +780,6 @@ export function ChatView() {
             </button>
           )}
         </div>
-      </div>
       </div>
     </div>
   );
