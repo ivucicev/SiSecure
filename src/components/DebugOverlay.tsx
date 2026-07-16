@@ -1,42 +1,15 @@
 import { useEffect, useState } from 'react';
 
-export const DEBUG_STORAGE_KEY = 'sisecure_debug_overlay';
-export const DEBUG_TOGGLE_EVENT = 'sisecure:debug-toggle';
-
-// Two ways to turn this on, since ?debug=1 turned out to depend on the
-// hosting/redirect/service-worker setup working a specific way, which
-// wasn't reliable enough in practice:
-//   1. ?debug=1 in the URL (still supported, still persists to
-//      localStorage so it survives into the installed PWA — iOS shares
-//      localStorage between Safari and an Add-to-Home-Screen app for the
-//      same origin) — but if the query string itself never reaches the
-//      app for some reason, this silently does nothing.
-//   2. Tap the version number in Settings 5 times (see SettingsModal.tsx)
-//      — pure in-app JS with zero dependency on URL parsing, redirects,
-//      or the service worker, guaranteed to work if the app loaded at all.
-// Exists because several rounds of mobile-viewport/keyboard fixes were
-// shipped on reasoning about iOS behavior alone, with no way to see what
-// was actually happening on the reporting device — each fix layered a new
-// guess on the last instead of converging. This gives real numbers to
-// screenshot instead.
+// Always on, unconditionally — no query param, no localStorage flag, no
+// tap gesture. Both of those depended on something (the query string
+// reaching the app, the tap handler firing) that wasn't reliably working
+// on the device this was needed on, which defeated the entire point.
+// This is temporary instrumentation for chasing a specific mobile-viewport
+// bug, not a real app feature — remove it once that's resolved.
 export function DebugOverlay() {
-  const [enabled, setEnabled] = useState(false);
   const [metrics, setMetrics] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get('debug');
-    if (param === '1') localStorage.setItem(DEBUG_STORAGE_KEY, '1');
-    if (param === '0') localStorage.removeItem(DEBUG_STORAGE_KEY);
-    setEnabled(param === '1' || localStorage.getItem(DEBUG_STORAGE_KEY) === '1');
-
-    const onToggle = () => setEnabled(localStorage.getItem(DEBUG_STORAGE_KEY) === '1');
-    window.addEventListener(DEBUG_TOGGLE_EVENT, onToggle);
-    return () => window.removeEventListener(DEBUG_TOGGLE_EVENT, onToggle);
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) return;
-
     const measureSafeArea = (side: 'top' | 'bottom' | 'left' | 'right') => {
       const probe = document.createElement('div');
       probe.style.cssText = `position:fixed;padding-${side}:env(safe-area-inset-${side});visibility:hidden;pointer-events:none;`;
@@ -80,9 +53,7 @@ export function DebugOverlay() {
       window.removeEventListener('focusin', update);
       window.removeEventListener('focusout', update);
     };
-  }, [enabled]);
-
-  if (!enabled) return null;
+  }, []);
 
   return (
     <div

@@ -5,10 +5,6 @@ import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Uplo
 import { db } from '../lib/db';
 import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
-import { DEBUG_STORAGE_KEY, DEBUG_TOGGLE_EVENT } from './DebugOverlay';
-
-const VERSION_TAP_COUNT = 5;
-const VERSION_TAP_WINDOW_MS = 3000;
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { profile, settings, updateProfile, updateSettings, lightNuke, fullNuke } = useSiSecure();
@@ -16,27 +12,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [newName, setNewName] = useState(profile?.displayName || '');
   const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
-  const versionTapsRef = React.useRef<number[]>([]);
 
-  // No dependency on URL query params or the service worker — ?debug=1
-  // turned out not to reliably reach the app in every deployment. This is
-  // guaranteed to work if the app loaded at all.
-  const handleVersionTap = () => {
-    const now = Date.now();
-    versionTapsRef.current = [...versionTapsRef.current, now].filter(t => now - t < VERSION_TAP_WINDOW_MS);
-    if (versionTapsRef.current.length >= VERSION_TAP_COUNT) {
-      versionTapsRef.current = [];
-      const isEnabled = localStorage.getItem(DEBUG_STORAGE_KEY) === '1';
-      if (isEnabled) {
-        localStorage.removeItem(DEBUG_STORAGE_KEY);
-      } else {
-        localStorage.setItem(DEBUG_STORAGE_KEY, '1');
-      }
-      window.dispatchEvent(new Event(DEBUG_TOGGLE_EVENT));
-      alert(isEnabled ? 'Debug overlay disabled' : 'Debug overlay enabled — check the top-left corner');
-    }
-  };
-  
   const [passwordModal, setPasswordModal] = useState<{
     type: 'export' | 'import';
     isOpen: boolean;
@@ -413,12 +389,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between gap-4 shrink-0">
           <div className="flex flex-col gap-1 min-w-0">
             <p className="text-[10px] text-zinc-600 font-mono tracking-tighter truncate">NODE_ID // {profile?.id.toUpperCase()}</p>
-            <p
-              onClick={handleVersionTap}
-              className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase cursor-pointer select-none"
-            >
-              SiSecure // v{__APP_VERSION__}
-            </p>
+            <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">SiSecure // v{__APP_VERSION__}</p>
           </div>
           <button className="h-12 px-6 bg-zinc-900/50 hover:bg-red-500/10 rounded-2xl text-zinc-500 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border border-white/5 shrink-0">
             <LogOut className="w-4 h-4" /> Disconnect Node
