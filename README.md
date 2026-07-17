@@ -1,12 +1,14 @@
-<div align="center">
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%" alt="SiSecure — a pure peer-to-peer messenger with real end-to-end encryption. No server ever sees your messages, contacts, or metadata.">
+</p>
 
-# SiSecure
-
-**A pure peer-to-peer messenger with real end-to-end encryption — no server ever sees your messages, contacts, or metadata.**
-
-*Local identity · WebRTC transport · Double Ratchet encryption · Zero cloud residue*
-
-</div>
+<p align="center">
+  <img src="https://img.shields.io/badge/react-19-2563EB?style=flat-square&labelColor=0A0A0A" alt="React 19">
+  <img src="https://img.shields.io/badge/vite-6-2563EB?style=flat-square&labelColor=0A0A0A" alt="Vite 6">
+  <img src="https://img.shields.io/badge/typescript-5.8-2563EB?style=flat-square&labelColor=0A0A0A" alt="TypeScript 5.8">
+  <img src="https://img.shields.io/badge/olm-double%20ratchet-2563EB?style=flat-square&labelColor=0A0A0A" alt="Olm Double Ratchet">
+  <img src="https://img.shields.io/badge/transport-webrtc-2563EB?style=flat-square&labelColor=0A0A0A" alt="WebRTC transport">
+</p>
 
 ---
 
@@ -19,26 +21,22 @@ If SiSecure's infrastructure disappeared tomorrow, your conversations wouldn't �
 ## Features
 
 - **Local identity, no phone number or email.** A Curve25519/Ed25519 keypair is generated on-device at signup. That's your entire account.
-- **Physical contact verification.** Contacts are added by scanning a QR code or entering a public key directly — no central lookup, no "find people you may know."
+- **Contact requests.** Contacts are added by scanning a QR code or entering a public key directly. A new contact starts `pending` — receiving your key isn't enough to message you, you have to accept the request first.
+- **Safety-number verification.** Every conversation has a fingerprint derived from both parties' identity keys. Compare it out-of-band and mark a contact verified to confirm no one intercepted the key exchange.
 - **Real end-to-end encryption.** Every 1:1 conversation runs its own [Olm](https://gitlab.matrix.org/matrix-org/olm) Double Ratchet session (the same cryptographic library Matrix/Element use in production). Group chats use Megolm, with session keys distributed individually over each member's pairwise encrypted channel.
 - **Direct P2P transport.** Messages travel over `RTCDataChannel`, peer to peer. A public signaling broker is used only to help two devices find each other and negotiate the connection — it never sees a single byte of message content.
 - **Groups.** Encrypted group chats with membership management and automatic key rotation when members are added.
+- **Temp Rooms.** Disposable, link-shareable group chats with no identity and no persistence — a random AES-256 key lives only in the URL fragment, which browsers never send to any server. Closing the tab destroys the room.
 - **Rich messaging.** Text, images, voice notes, reactions, read receipts, typing indicators, message forwarding — all encrypted, all local.
 - **Presence without a server.** Online/offline status is derived from live peer connections, not a centralized presence service.
-- **Local data sovereignty.** Everything lives in your browser's IndexedDB. Encrypted export/import lets you migrate to a new device on your own terms.
-- **Auto-pruning.** Optionally erase message history older than a configurable window, automatically.
+- **PIN lock and encrypted local vault.** An optional PIN derives an AES-256-GCM key (via PBKDF2) that encrypts your identity, sessions, and message history at rest — without it, IndexedDB on disk is unreadable, including to anyone with direct access to the device.
+- **Tiered data nuke, with auto-nuke on inactivity.** Wipe just message history, or everything except your identity, in one action — optionally triggered automatically after a configurable number of idle days.
 
 ## How it works
 
-```
-┌──────────┐        WebRTC DataChannel (DTLS + Double Ratchet)        ┌──────────┐
-│  You     │ ◄─────────────────────────────────────────────────────► │  Contact │
-└────┬─────┘                                                          └────┬─────┘
-     │                                                                     │
-     └──────────────────────┐                       ┌──────────────────────┘
-                             ▼                       ▼
-                      Public signaling broker (SDP/ICE only — no message content)
-```
+<p align="center">
+  <img src="./assets/readme/architecture.svg" width="100%" alt="Two devices connected directly over an RTCDataChannel secured with DTLS and a Double Ratchet session; a public signaling broker only exchanges SDP/ICE connection details and never sees message content.">
+</p>
 
 1. **Identity.** On first launch, SiSecure generates a local Ed25519/Curve25519 keypair (via Olm) plus a set of one-time prekeys — entirely on-device.
 2. **Contact exchange.** Scanning a contact's QR code (or entering their key manually) hands your device their public routing address. The two devices then open a direct WebRTC connection.
@@ -54,6 +52,7 @@ If SiSecure's infrastructure disappeared tomorrow, your conversations wouldn't �
 | Local storage | Dexie (IndexedDB) |
 | P2P transport | WebRTC via PeerJS (public broker for signaling only) |
 | Encryption | [`@matrix-org/olm`](https://gitlab.matrix.org/matrix-org/olm) — Double Ratchet + Megolm |
+| Local vault encryption | Web Crypto API — PBKDF2 → AES-256-GCM, key derived from your PIN |
 | QR code | `qrcode.react` (generate) / `html5-qrcode` (scan) |
 | Animation | Motion |
 
@@ -99,26 +98,33 @@ src/
 │   ├── db.ts             # Dexie schema (profile, contacts, messages, groups, sessions)
 │   ├── olm.ts            # Olm WASM initialization
 │   ├── crypto.ts         # Double Ratchet / Megolm session management
+│   ├── vault.ts          # PIN-derived vault key, at-rest encryption
+│   ├── safetyNumber.ts   # Fingerprint derivation for contact verification
+│   ├── tempCrypto.ts     # Shared-key AES-GCM for Temp Rooms
 │   └── utils.ts
 └── components/
-    ├── Onboarding.tsx     # Local identity creation
-    ├── Home.tsx           # App shell
-    ├── ChatList.tsx       # Conversation list, unread indicators
-    ├── ChatView.tsx       # Message thread, composer, media
-    ├── AddContactModal.tsx  # QR generation/scanning, manual key entry
+    ├── Onboarding.tsx        # Local identity creation
+    ├── Home.tsx              # App shell
+    ├── ChatList.tsx          # Conversation list, contact requests, unread indicators
+    ├── ChatView.tsx          # Message thread, composer, media
+    ├── AddContactModal.tsx   # QR generation/scanning, manual key entry
+    ├── VerifyContactModal.tsx  # Safety-number comparison
+    ├── UnlockScreen.tsx      # PIN entry, gates the app before the vault key exists
+    ├── TempRoomView.tsx      # Ephemeral, unpersisted group chat
     ├── CreateGroupModal.tsx
     ├── GroupInfoModal.tsx
-    └── SettingsModal.tsx  # Backup export/import, privacy controls
+    └── SettingsModal.tsx     # Backup export/import, PIN vault, nuke tiers
 ```
 
 ## Security notes
 
 - Message content and media are encrypted before they leave the device. A signaling broker is used only to help two peers discover each other and negotiate a WebRTC connection (SDP/ICE) — it never has access to plaintext or ciphertext message content.
+- With the PIN vault enabled, identity, sessions, and message history are also encrypted at rest — without the PIN, none of it is readable from the device's storage either.
 - Encrypted local backups are protected with a user-supplied passphrase (AES) — the passphrase never leaves your device either.
 - This project is under active development. Treat it as a strong technical foundation, not yet an audited production security product — see open items below before relying on it for high-stakes threat models.
 
 **Known limitations:**
-- The WebRTC signaling identity (used to route connections) isn't yet cryptographically bound to the Olm identity key — verifying a contact's "Security Fingerprint" out-of-band is recommended for anyone with a serious adversary model.
+- The WebRTC signaling identity (used to route connections) isn't cryptographically bound to the Olm identity key. Safety-number verification closes this gap, but it's a manual, opt-in step — verify new contacts out-of-band if your threat model includes an adversary on the signaling path.
 - No TURN relay beyond the public broker's shared fallback; connections across some restrictive networks may be unreliable.
 - **Delivery requires overlapping online time.** Since there's no store-and-forward server, a message only reaches its recipient once both of you happen to have the app open at the same moment. If you send while they're offline and then close the app yourself before they return, nothing is left running anywhere to retry it — it waits for the next coincidence. This is inherent to a serverless P2P design, not a bug.
 

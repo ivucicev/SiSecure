@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="360" viewBox="0 0 1200 360"
+     role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">SiSecure transport and encryption path</title>
+  <desc id="arch-desc">Two devices exchange messages directly over an RTCDataChannel secured with DTLS and a Double Ratchet session. A public signaling broker only exchanges SDP/ICE connection details and never has access to message content.</desc>
+
+  <defs>
+    <linearGradient id="archLink" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="50%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="360" rx="24" fill="#0A0A0A"/>
+  <rect x="1" y="1" width="1198" height="358" rx="23" fill="none" stroke="#FFFFFF" stroke-opacity="0.08"/>
+
+  <!-- devices -->
+  <g>
+    <rect x="90" y="112" width="210" height="120" rx="16" fill="#121212" stroke="#FFFFFF" stroke-opacity="0.1"/>
+    <circle cx="114" cy="138" r="4" fill="#22C55E"/>
+    <text x="126" y="142" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="600" letter-spacing="1" fill="#71717A">ONLINE</text>
+    <text x="112" y="180" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="600" fill="#F4F4F5">You</text>
+    <text x="112" y="202" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#71717A">Curve25519 / Ed25519</text>
+    <text x="112" y="218" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#71717A">generated on-device</text>
+  </g>
+
+  <g>
+    <rect x="900" y="112" width="210" height="120" rx="16" fill="#121212" stroke="#FFFFFF" stroke-opacity="0.1"/>
+    <circle cx="924" cy="138" r="4" fill="#22C55E"/>
+    <text x="936" y="142" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="600" letter-spacing="1" fill="#71717A">ONLINE</text>
+    <text x="922" y="180" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="600" fill="#F4F4F5">Contact</text>
+    <text x="922" y="202" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#71717A">Curve25519 / Ed25519</text>
+    <text x="922" y="218" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#71717A">generated on-device</text>
+  </g>
+
+  <!-- direct encrypted channel -->
+  <line x1="300" y1="172" x2="900" y2="172" stroke="url(#archLink)" stroke-width="3"/>
+  <g stroke="#0A0A0A" stroke-width="2">
+    <line x1="360" y1="164" x2="360" y2="180"/>
+    <line x1="440" y1="164" x2="440" y2="180"/>
+    <line x1="520" y1="164" x2="520" y2="180"/>
+    <line x1="680" y1="164" x2="680" y2="180"/>
+    <line x1="760" y1="164" x2="760" y2="180"/>
+    <line x1="840" y1="164" x2="840" y2="180"/>
+  </g>
+  <rect x="570" y="157" width="60" height="30" rx="7" fill="#0A0A0A" stroke="#3B82F6"/>
+  <path d="M 584 165 v -5 a 16 8 0 0 1 32 0 v 5" fill="none" stroke="#3B82F6" stroke-width="2"/>
+  <rect x="580" y="165" width="40" height="15" rx="2" fill="#3B82F6"/>
+
+  <text x="600" y="130" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" letter-spacing="1.2" fill="#60A5FA">RTCDATACHANNEL &#183; DTLS + DOUBLE RATCHET</text>
+  <text x="600" y="210" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#52525B">direct, peer-to-peer &#183; every message advances the ratchet</text>
+
+  <!-- broker: signaling only -->
+  <path d="M 260 232 Q 420 288 500 305" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5" stroke-dasharray="3 4"/>
+  <path d="M 940 232 Q 780 288 700 305" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5" stroke-dasharray="3 4"/>
+
+  <rect x="470" y="298" width="260" height="46" rx="23" fill="#121212" stroke="#FFFFFF" stroke-opacity="0.12"/>
+  <text x="600" y="317" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" letter-spacing="1" fill="#D4D4D8">PUBLIC SIGNALING BROKER</text>
+  <text x="600" y="334" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#71717A">SDP / ICE only &#183; never sees message content</text>
+</svg>
