@@ -1,0 +1,3 @@
+Most encrypted messengers still tie you to a phone number and a company's servers.
+
+SiSecure: peer-to-peer messaging with no message-relay server

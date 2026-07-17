@@ -1,0 +1,3 @@
+Most 'encrypted' messengers still route every message through a company's servers.
+
+SiSecure is a pure peer-to-peer messenger built on Olm's Double Ratchet - the same encryption Matrix/Element run in production - with no message server at all.
