@@ -5,6 +5,7 @@ import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Uplo
 import { db } from '../lib/db';
 import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
+import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { profile, settings, updateProfile, updateSettings, enableVaultPin, disableVaultPin, lightNuke, fullNuke } = useSiSecure();
@@ -42,6 +43,32 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     } finally {
       setPinBusy(false);
     }
+  };
+
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioError, setBioError] = useState('');
+
+  const handleEnableBiometric = async () => {
+    if (!profile || !settings) return;
+    setBioBusy(true);
+    setBioError('');
+    try {
+      if (!(await isPlatformAuthenticatorAvailable())) {
+        setBioError('No Face ID, Touch ID, or Windows Hello available on this device/browser.');
+        return;
+      }
+      const credentialId = await registerBiometric(profile.id, profile.displayName);
+      await updateSettings({ biometricLock: true, biometricCredentialId: credentialId });
+    } catch (err) {
+      setBioError(err instanceof Error && err.name === 'NotAllowedError' ? 'Cancelled.' : 'Could not register — try again.');
+    } finally {
+      setBioBusy(false);
+    }
+  };
+
+  const handleDisableBiometric = async () => {
+    if (!settings) return;
+    await updateSettings({ biometricLock: false, biometricCredentialId: undefined });
   };
 
   const [passwordModal, setPasswordModal] = useState<{
@@ -409,10 +436,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <div className="h-px bg-white/5 mx-6" />
               <ToggleRow
                 label="Biometric Barrier"
-                desc="Lock the application access behind your device authentication flow."
+                desc="Lock the application access behind your device authentication flow (Face ID, Touch ID, or Windows Hello)."
                 on={settings?.biometricLock || false}
-                onChange={(val) => updateSettings({ biometricLock: val })}
+                onChange={(val) => {
+                  if (val) {
+                    handleEnableBiometric();
+                  } else {
+                    handleDisableBiometric();
+                  }
+                }}
               />
+              {(bioBusy || bioError) && (
+                <div className="px-6 pb-6 pt-2 space-y-2">
+                  {bioBusy && <p className="text-zinc-500 text-xs text-center">Follow the prompt from your device…</p>}
+                  {bioError && <p className="text-red-500 text-xs text-center">{bioError}</p>}
+                </div>
+              )}
               <div className="h-px bg-white/5 mx-6" />
               <ToggleRow
                 label="PIN Lock & Vault Encryption"

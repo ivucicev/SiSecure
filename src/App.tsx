@@ -7,6 +7,7 @@ import { useState, useEffect, Suspense, lazy } from 'react';
 import { SiSecureProvider, useSiSecure } from './SiSecureContext';
 import { Home } from './components/Home';
 import { UnlockScreen } from './components/UnlockScreen';
+import { BiometricUnlockScreen } from './components/BiometricUnlockScreen';
 import { db } from './lib/db';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -62,14 +63,19 @@ function AppContent() {
   );
 }
 
-// Gates mounting SiSecureProvider at all when a PIN is configured — Olm
-// account/session loading needs the real vault key already in memory
-// (src/lib/vault.ts) before it unpickles anything, not after. Checks Dexie
-// directly rather than through context, since the context doesn't exist
-// yet at this point.
+// Gates mounting SiSecureProvider at all when a PIN and/or biometric lock is
+// configured — Olm account/session loading needs the real vault key already
+// in memory (src/lib/vault.ts) before it unpickles anything, not after.
+// Checks Dexie directly rather than through context, since the context
+// doesn't exist yet at this point. Biometric (a device-native presence
+// check, src/lib/webauthn.ts) gates first since it's independent of the
+// vault key; PIN gates second since unlocking it is what makes the vault key
+// available.
 function LockGate({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
   const [pinConfig, setPinConfig] = useState<{ pinSalt: string; pinVerifier: string } | null>(null);
+  const [biometricCredentialId, setBiometricCredentialId] = useState<string | null>(null);
+  const [biometricPassed, setBiometricPassed] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
@@ -77,11 +83,17 @@ function LockGate({ children }: { children: React.ReactNode }) {
       if (s?.pinEnabled && s.pinSalt && s.pinVerifier) {
         setPinConfig({ pinSalt: s.pinSalt, pinVerifier: s.pinVerifier });
       }
+      if (s?.biometricLock && s.biometricCredentialId) {
+        setBiometricCredentialId(s.biometricCredentialId);
+      }
       setChecked(true);
     });
   }, []);
 
   if (!checked) return <Spinner />;
+  if (biometricCredentialId && !biometricPassed) {
+    return <BiometricUnlockScreen credentialId={biometricCredentialId} onUnlock={() => setBiometricPassed(true)} />;
+  }
   if (pinConfig && !unlocked) {
     return <UnlockScreen pinSalt={pinConfig.pinSalt} pinVerifier={pinConfig.pinVerifier} onUnlock={() => setUnlocked(true)} />;
   }

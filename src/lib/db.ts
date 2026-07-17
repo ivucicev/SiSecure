@@ -100,7 +100,12 @@ export interface AppSettings {
   autoPrune: boolean;
   pruneRetentionDays: number;
   stealthMode: boolean;
+  // Gates app access behind a WebAuthn platform authenticator (Face ID / Touch
+  // ID / Windows Hello) — see src/lib/webauthn.ts. biometricCredentialId is
+  // the registered credential's id (base64url); biometricLock is only ever
+  // true when a credential is actually registered.
   biometricLock: boolean;
+  biometricCredentialId?: string;
   theme: 'dark' | 'light' | 'amoled';
   // Inactivity-triggered nuke — checked once at startup against `lastActiveAt`.
   lastActiveAt?: number;
