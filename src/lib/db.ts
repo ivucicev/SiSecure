@@ -101,11 +101,19 @@ export interface AppSettings {
   pruneRetentionDays: number;
   stealthMode: boolean;
   // Gates app access behind a WebAuthn platform authenticator (Face ID / Touch
-  // ID / Windows Hello) — see src/lib/webauthn.ts. biometricCredentialId is
-  // the registered credential's id (base64url); biometricLock is only ever
-  // true when a credential is actually registered.
+  // ID / Windows Hello) — see src/lib/webauthn.ts and src/lib/vault.ts.
+  // biometricCredentialId is the registered credential's id (base64url);
+  // biometricLock is only ever true when a credential is actually registered.
+  // biometricPrfSupported records whether THIS authenticator supports the
+  // `prf` extension (real key derivation) vs presence-only verification —
+  // decided once at registration time, since it can vary by device/browser.
+  // biometricWrappedKey is the vault master key, AES-GCM-wrapped under a key
+  // derived from this credential's prf output (present only when
+  // biometricPrfSupported is true).
   biometricLock: boolean;
   biometricCredentialId?: string;
+  biometricPrfSupported?: boolean;
+  biometricWrappedKey?: string;
   theme: 'dark' | 'light' | 'amoled';
   // Inactivity-triggered nuke — checked once at startup against `lastActiveAt`.
   lastActiveAt?: number;
@@ -114,11 +122,15 @@ export interface AppSettings {
   autoNukeFullDays?: number;
   // App-lock PIN — gates both unlocking the app and deriving the real
   // Olm pickle key / message-content encryption key (src/lib/vault.ts).
-  // pinVerifier is a ciphertext of a known constant, used to check a
-  // re-entered PIN derives the same key; the PIN itself is never stored.
+  // Legacy format (PIN was/is the only method ever enabled): pinVerifier is
+  // a ciphertext of a known constant, and the PBKDF2(pin) output IS the
+  // vault key directly. Current format (PIN added alongside, or after,
+  // biometric): pinWrappedKey is the vault master key AES-GCM-wrapped under
+  // a PBKDF2(pin)-derived key. The PIN itself is never stored either way.
   pinEnabled?: boolean;
   pinSalt?: string;
   pinVerifier?: string;
+  pinWrappedKey?: string;
 }
 
 export class SiSecureDatabase extends Dexie {

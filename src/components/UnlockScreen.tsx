@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Lock, ArrowRight } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { tryUnlock } from '../lib/vault';
+import { tryUnlockPin } from '../lib/vault';
 
 interface UnlockScreenProps {
   pinSalt: string;
-  pinVerifier: string;
+  pinVerifier?: string;
+  pinWrappedKey?: string;
   onUnlock: () => void;
 }
 
@@ -14,7 +15,7 @@ interface UnlockScreenProps {
 // needs the vault key already in memory (see src/lib/vault.ts and
 // pickleKeyFor in src/lib/olm.ts), so the app can't start initializing
 // until this resolves.
-export function UnlockScreen({ pinSalt, pinVerifier, onUnlock }: UnlockScreenProps) {
+export function UnlockScreen({ pinSalt, pinVerifier, pinWrappedKey, onUnlock }: UnlockScreenProps) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -23,7 +24,7 @@ export function UnlockScreen({ pinSalt, pinVerifier, onUnlock }: UnlockScreenPro
     if (!pin || checking) return;
     setChecking(true);
     setError(false);
-    const ok = await tryUnlock(pin, pinSalt, pinVerifier);
+    const ok = await tryUnlockPin(pin, { pinSalt, pinVerifier, pinWrappedKey });
     setChecking(false);
     if (ok) {
       onUnlock();

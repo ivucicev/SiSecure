@@ -4,7 +4,19 @@ import { db, type UserProfile, type Contact, type Message, type AppSettings, typ
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateId } from './lib/utils';
 import { initOlm, Olm } from './lib/olm';
-import { encryptField, decryptField, setupPin, lockVault, getVaultPickleKeyMaterial } from './lib/vault';
+import {
+  encryptField,
+  decryptField,
+  setupPinLegacy,
+  wrapMasterKeyWithPin,
+  wrapMasterKeyWithPrf,
+  generateMasterKey,
+  adoptVaultKey,
+  getCurrentVaultKeyBytes,
+  lockVault,
+  getVaultPickleKeyMaterial
+} from './lib/vault';
+import { isPlatformAuthenticatorAvailable, registerBiometric, getPrfOutput } from './lib/webauthn';
 import {
   loadOrCreateOlmAccount,
   claimOneTimeKeyForHello,
@@ -55,6 +67,8 @@ interface SiSecureContextType {
   updateSettings: (data: Partial<AppSettings>) => Promise<void>;
   enableVaultPin: (pin: string) => Promise<void>;
   disableVaultPin: () => Promise<void>;
+  enableBiometricLock: () => Promise<{ prfSupported: boolean }>;
+  disableBiometricLock: () => Promise<void>;
   addContact: (contact: Omit<Contact, 'id' | 'addedAt' | 'lastSeen' | 'isOnline'>) => Promise<string>;
   acceptContact: (contactId: string) => Promise<void>;
   declineContact: (contactId: string) => Promise<void>;
@@ -691,18 +705,36 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Turning the vault PIN on/off has to re-pickle every stored Olm/Megolm
-  // session under the new key (see repickleAllSessions) — pickles aren't
-  // portable across keys the way, say, re-hashing a password would be, this
-  // *is* the re-encryption. Message content/media goes through the same
-  // encryptField/decryptField (src/lib/vault.ts) already wired into every
-  // read/write path elsewhere in this file; enabling/disabling just needs
-  // to walk every existing row once instead of relying on the next natural
-  // read/write to touch it.
+  // Turning a lock method on/off potentially has to re-pickle every stored
+  // Olm/Megolm session under a new key (see repickleAllSessions) and
+  // re-encrypt every message row — pickles aren't portable across keys the
+  // way, say, re-hashing a password would be, this *is* the re-encryption.
+  // But that full pass is only needed the FIRST time any method is enabled
+  // (generating the one random vault master key data actually gets
+  // encrypted under) or the LAST time one is disabled (reverting back to
+  // plaintext + the static fallback pickle key). Adding a SECOND method
+  // alongside an already-active one just wraps the existing in-memory
+  // master key under the new method's derived key — cheap, no data touched,
+  // see src/lib/vault.ts's module comment for the full key model.
   const enableVaultPin = async (pin: string) => {
     if (!profile) return;
+    const existingMasterKey = getCurrentVaultKeyBytes();
+    if (existingMasterKey) {
+      // Second method: biometric is already unlocked this session. Wrap the
+      // SAME master key under the new PIN — no re-encryption needed.
+      const { pinSalt, pinWrappedKey } = await wrapMasterKeyWithPin(pin, existingMasterKey);
+      await db.settings.update(settings!.id, {
+        pinEnabled: true,
+        pinSalt,
+        pinWrappedKey,
+        pinVerifier: undefined
+      });
+      return;
+    }
+
+    // First method: legacy direct-derivation path, full re-encryption pass.
     const oldKey = getVaultPickleKeyMaterial(profile.id);
-    const { pinSalt, pinVerifier } = await setupPin(pin);
+    const { pinSalt, pinVerifier } = await setupPinLegacy(pin);
     const newKey = getVaultPickleKeyMaterial(profile.id);
 
     await repickleAllSessions(profile.id, oldKey, newKey);
@@ -717,6 +749,21 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const disableVaultPin = async () => {
     if (!profile || !settings?.pinEnabled) return;
+
+    const otherMethodStillActive = settings.biometricLock && settings.biometricPrfSupported && settings.biometricWrappedKey;
+    if (otherMethodStillActive) {
+      // Biometric still holds a valid wrapped copy of the same master key —
+      // just drop PIN's copy, nothing about the vault key or the data changes.
+      await db.settings.update(settings.id, {
+        pinEnabled: false,
+        pinSalt: undefined,
+        pinVerifier: undefined,
+        pinWrappedKey: undefined
+      });
+      return;
+    }
+
+    // Last (or only) method: full reversal back to plaintext + static key.
     const oldKey = getVaultPickleKeyMaterial(profile.id);
 
     // Must decrypt while the key we're about to discard still works.
@@ -729,7 +776,125 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const newKey = getVaultPickleKeyMaterial(profile.id);
     await repickleAllSessions(profile.id, oldKey, newKey);
 
-    await db.settings.update(settings.id, { pinEnabled: false });
+    await db.settings.update(settings.id, {
+      pinEnabled: false,
+      pinSalt: undefined,
+      pinVerifier: undefined,
+      pinWrappedKey: undefined
+    });
+  };
+
+  // Registers a platform-authenticator credential and, when it supports the
+  // `prf` WebAuthn extension, wires it into the same vault master key PIN
+  // uses (see src/lib/vault.ts) — either wrapping the key already unlocked
+  // by an active PIN this session, or generating a fresh one and running the
+  // same one-time re-encryption pass enableVaultPin's first-method path
+  // does. When the authenticator doesn't support prf, this falls back to a
+  // presence-only gate (App.tsx's LockGate) with no effect on encryption —
+  // callers should tell the user which tier they got.
+  const enableBiometricLock = async (): Promise<{ prfSupported: boolean }> => {
+    if (!profile) return { prfSupported: false };
+    if (!(await isPlatformAuthenticatorAvailable())) {
+      throw new Error('No platform authenticator (Face ID / Touch ID / Windows Hello) available.');
+    }
+
+    const { credentialId, prfSupported } = await registerBiometric(profile.id, profile.displayName);
+
+    if (!prfSupported) {
+      await db.settings.update(settings!.id, {
+        biometricLock: true,
+        biometricCredentialId: credentialId,
+        biometricPrfSupported: false,
+        biometricWrappedKey: undefined
+      });
+      return { prfSupported: false };
+    }
+
+    const prfOutput = await getPrfOutput(credentialId);
+    if (!prfOutput) {
+      // Registered fine but couldn't retrieve a prf output right away —
+      // degrade to presence-only rather than fail the whole setup.
+      await db.settings.update(settings!.id, {
+        biometricLock: true,
+        biometricCredentialId: credentialId,
+        biometricPrfSupported: false,
+        biometricWrappedKey: undefined
+      });
+      return { prfSupported: false };
+    }
+
+    const existingMasterKey = getCurrentVaultKeyBytes();
+    if (existingMasterKey) {
+      // Second method: PIN is already unlocked this session. Wrap the SAME
+      // master key — no re-encryption needed.
+      const biometricWrappedKey = await wrapMasterKeyWithPrf(prfOutput, existingMasterKey);
+      await db.settings.update(settings!.id, {
+        biometricLock: true,
+        biometricCredentialId: credentialId,
+        biometricPrfSupported: true,
+        biometricWrappedKey
+      });
+      return { prfSupported: true };
+    }
+
+    // First method: fresh master key, full re-encryption pass.
+    const oldKey = getVaultPickleKeyMaterial(profile.id);
+    const masterKey = generateMasterKey();
+    const biometricWrappedKey = await wrapMasterKeyWithPrf(prfOutput, masterKey);
+    await adoptVaultKey(masterKey);
+    const newKey = getVaultPickleKeyMaterial(profile.id);
+
+    await repickleAllSessions(profile.id, oldKey, newKey);
+
+    const allMessages = await db.messages.toArray();
+    for (const m of allMessages) {
+      await db.messages.put(await encryptMessageForStorage(m));
+    }
+
+    await db.settings.update(settings!.id, {
+      biometricLock: true,
+      biometricCredentialId: credentialId,
+      biometricPrfSupported: true,
+      biometricWrappedKey
+    });
+    return { prfSupported: true };
+  };
+
+  const disableBiometricLock = async () => {
+    if (!profile || !settings?.biometricLock) return;
+
+    const wasRealEncryption = settings.biometricPrfSupported && settings.biometricWrappedKey;
+    const otherMethodStillActive = settings.pinEnabled;
+
+    if (!wasRealEncryption || otherMethodStillActive) {
+      // Either this was only ever a presence gate (nothing to reverse), or
+      // PIN still holds a valid wrapped copy of the same master key.
+      await db.settings.update(settings.id, {
+        biometricLock: false,
+        biometricCredentialId: undefined,
+        biometricPrfSupported: undefined,
+        biometricWrappedKey: undefined
+      });
+      return;
+    }
+
+    // Last (or only) method, and it was real encryption: full reversal.
+    const oldKey = getVaultPickleKeyMaterial(profile.id);
+    const allMessages = await db.messages.toArray();
+    for (const m of allMessages) {
+      await db.messages.put(await decryptMessageForDisplay(m));
+    }
+
+    lockVault();
+    const newKey = getVaultPickleKeyMaterial(profile.id);
+    await repickleAllSessions(profile.id, oldKey, newKey);
+
+    await db.settings.update(settings.id, {
+      biometricLock: false,
+      biometricCredentialId: undefined,
+      biometricPrfSupported: undefined,
+      biometricWrappedKey: undefined
+    });
   };
 
   // Messages only — contacts, groups, profile, and crypto sessions untouched,
@@ -1024,6 +1189,8 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updateSettings,
       enableVaultPin,
       disableVaultPin,
+      enableBiometricLock,
+      disableBiometricLock,
       addContact,
       acceptContact,
       declineContact,

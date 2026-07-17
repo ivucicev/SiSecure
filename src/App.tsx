@@ -9,6 +9,7 @@ import { Home } from './components/Home';
 import { UnlockScreen } from './components/UnlockScreen';
 import { BiometricUnlockScreen } from './components/BiometricUnlockScreen';
 import { db } from './lib/db';
+import { isVaultUnlocked } from './lib/vault';
 import { AnimatePresence, motion } from 'motion/react';
 
 // A returning user with a profile goes straight to Home and never needs any
@@ -67,35 +68,45 @@ function AppContent() {
 // configured — Olm account/session loading needs the real vault key already
 // in memory (src/lib/vault.ts) before it unpickles anything, not after.
 // Checks Dexie directly rather than through context, since the context
-// doesn't exist yet at this point. Biometric (a device-native presence
-// check, src/lib/webauthn.ts) gates first since it's independent of the
-// vault key; PIN gates second since unlocking it is what makes the vault key
-// available.
+// doesn't exist yet at this point.
+//
+// Biometric gates first since it's independent of the PIN. When it supports
+// the `prf` WebAuthn extension, a successful biometric unlock ALREADY
+// recovers the real vault key (see src/lib/vault.ts's wrapped-master-key
+// model) — the PIN screen would just be re-deriving access to the same
+// vault, so it's skipped entirely in that case (checked via
+// isVaultUnlocked() right after biometric passes). If biometric is
+// presence-only (no prf support) or absent, the PIN screen still runs as
+// the real unlock step.
 function LockGate({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
-  const [pinConfig, setPinConfig] = useState<{ pinSalt: string; pinVerifier: string } | null>(null);
-  const [biometricCredentialId, setBiometricCredentialId] = useState<string | null>(null);
+  const [pinConfig, setPinConfig] = useState<{ pinSalt: string; pinVerifier?: string; pinWrappedKey?: string } | null>(null);
+  const [biometricConfig, setBiometricConfig] = useState<{ credentialId: string; prfSupported: boolean; wrappedKey?: string } | null>(null);
   const [biometricPassed, setBiometricPassed] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     db.settings.get('default').then((s) => {
-      if (s?.pinEnabled && s.pinSalt && s.pinVerifier) {
-        setPinConfig({ pinSalt: s.pinSalt, pinVerifier: s.pinVerifier });
+      if (s?.pinEnabled && s.pinSalt && (s.pinVerifier || s.pinWrappedKey)) {
+        setPinConfig({ pinSalt: s.pinSalt, pinVerifier: s.pinVerifier, pinWrappedKey: s.pinWrappedKey });
       }
       if (s?.biometricLock && s.biometricCredentialId) {
-        setBiometricCredentialId(s.biometricCredentialId);
+        setBiometricConfig({
+          credentialId: s.biometricCredentialId,
+          prfSupported: s.biometricPrfSupported === true,
+          wrappedKey: s.biometricWrappedKey
+        });
       }
       setChecked(true);
     });
   }, []);
 
   if (!checked) return <Spinner />;
-  if (biometricCredentialId && !biometricPassed) {
-    return <BiometricUnlockScreen credentialId={biometricCredentialId} onUnlock={() => setBiometricPassed(true)} />;
+  if (biometricConfig && !biometricPassed) {
+    return <BiometricUnlockScreen config={biometricConfig} onUnlock={() => setBiometricPassed(true)} />;
   }
-  if (pinConfig && !unlocked) {
-    return <UnlockScreen pinSalt={pinConfig.pinSalt} pinVerifier={pinConfig.pinVerifier} onUnlock={() => setUnlocked(true)} />;
+  if (pinConfig && !unlocked && !isVaultUnlocked()) {
+    return <UnlockScreen pinSalt={pinConfig.pinSalt} pinVerifier={pinConfig.pinVerifier} pinWrappedKey={pinConfig.pinWrappedKey} onUnlock={() => setUnlocked(true)} />;
   }
   return <>{children}</>;
 }

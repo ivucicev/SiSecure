@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Fingerprint, RotateCcw } from 'lucide-react';
-import { verifyBiometric } from '../lib/webauthn';
+import { getPrfOutput, verifyBiometric } from '../lib/webauthn';
+import { tryUnlockBiometric } from '../lib/vault';
 
 interface BiometricUnlockScreenProps {
-  credentialId: string;
+  config: { credentialId: string; prfSupported: boolean; wrappedKey?: string };
   onUnlock: () => void;
 }
 
@@ -13,14 +14,29 @@ interface BiometricUnlockScreenProps {
 // until this resolves. Prompts automatically on mount so the platform's
 // native Face ID / Touch ID / Windows Hello sheet appears immediately
 // instead of waiting for an extra tap.
-export function BiometricUnlockScreen({ credentialId, onUnlock }: BiometricUnlockScreenProps) {
+//
+// Two tiers: when the registered credential supports the `prf` extension
+// (config.prfSupported, with a stored wrappedKey), a successful prompt
+// recovers the real vault key via tryUnlockBiometric — this IS the unlock,
+// same as entering the right PIN, and LockGate skips the PIN screen
+// afterward. Otherwise this falls back to a presence-only check
+// (verifyBiometric) that just gates the UI without touching the vault key —
+// PIN, if also configured, still runs as the real unlock step next.
+export function BiometricUnlockScreen({ config, onUnlock }: BiometricUnlockScreenProps) {
   const [checking, setChecking] = useState(true);
   const [failed, setFailed] = useState(false);
 
   const attempt = async () => {
     setChecking(true);
     setFailed(false);
-    const ok = await verifyBiometric(credentialId);
+    const ok =
+      config.prfSupported && config.wrappedKey
+        ? await (async () => {
+            const prfOutput = await getPrfOutput(config.credentialId);
+            if (!prfOutput) return false;
+            return tryUnlockBiometric(prfOutput, config.wrappedKey!);
+          })()
+        : await verifyBiometric(config.credentialId);
     setChecking(false);
     if (ok) onUnlock();
     else setFailed(true);

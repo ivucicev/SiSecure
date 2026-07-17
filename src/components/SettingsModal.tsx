@@ -5,14 +5,31 @@ import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Uplo
 import { db } from '../lib/db';
 import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
-import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { profile, settings, updateProfile, updateSettings, enableVaultPin, disableVaultPin, lightNuke, fullNuke } = useSiSecure();
+  const {
+    profile,
+    settings,
+    updateProfile,
+    updateSettings,
+    enableVaultPin,
+    disableVaultPin,
+    enableBiometricLock,
+    disableBiometricLock,
+    lightNuke,
+    fullNuke
+  } = useSiSecure();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
   const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
+
+  // Any OTHER method still active means the data stays encrypted either way
+  // — only the very last remaining method disables real at-rest protection.
+  const otherLockMethodActive = (excluding: 'pin' | 'biometric') => {
+    if (excluding === 'pin') return !!(settings?.biometricLock && settings?.biometricPrfSupported);
+    return !!settings?.pinEnabled;
+  };
 
   const [pinSetupMode, setPinSetupMode] = useState(false);
   const [newPin, setNewPin] = useState('');
@@ -36,7 +53,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleDisablePin = async () => {
-    if (!confirm('Disable PIN lock? Your identity, sessions, and messages will be re-encrypted back to a device-only key — nothing is lost, but the PIN will no longer be required to open the app.')) return;
+    const message = otherLockMethodActive('pin')
+      ? 'Disable PIN lock? Biometric unlock stays active and your data stays encrypted exactly as it is now.'
+      : "Disable PIN lock? Your identity, sessions, and messages will be re-encrypted back to a device-only key — nothing is lost, but the PIN will no longer be required to open the app.";
+    if (!confirm(message)) return;
     setPinBusy(true);
     try {
       await disableVaultPin();
@@ -47,20 +67,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const [bioBusy, setBioBusy] = useState(false);
   const [bioError, setBioError] = useState('');
+  const [bioInfo, setBioInfo] = useState('');
 
   const handleEnableBiometric = async () => {
     if (!profile || !settings) return;
     setBioBusy(true);
     setBioError('');
+    setBioInfo('');
     try {
-      if (!(await isPlatformAuthenticatorAvailable())) {
-        setBioError('No Face ID, Touch ID, or Windows Hello available on this device/browser.');
-        return;
-      }
-      const credentialId = await registerBiometric(profile.id, profile.displayName);
-      await updateSettings({ biometricLock: true, biometricCredentialId: credentialId });
+      const { prfSupported } = await enableBiometricLock();
+      setBioInfo(
+        prfSupported
+          ? 'Real encryption enabled — your device biometric now protects your data at rest, same as a PIN.'
+          : 'This device only supports a presence check, not key derivation — biometric now gates opening the app, but does not encrypt data at rest. Add a PIN for real at-rest protection.'
+      );
     } catch (err) {
-      setBioError(err instanceof Error && err.name === 'NotAllowedError' ? 'Cancelled.' : 'Could not register — try again.');
+      setBioError(
+        err instanceof Error && err.name === 'NotAllowedError'
+          ? 'Cancelled.'
+          : err instanceof Error && err.message.includes('platform authenticator')
+            ? 'No Face ID, Touch ID, or Windows Hello available on this device/browser.'
+            : 'Could not register — try again.'
+      );
     } finally {
       setBioBusy(false);
     }
@@ -68,7 +96,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const handleDisableBiometric = async () => {
     if (!settings) return;
-    await updateSettings({ biometricLock: false, biometricCredentialId: undefined });
+    const message = otherLockMethodActive('biometric')
+      ? 'Disable biometric unlock? PIN lock stays active and your data stays encrypted exactly as it is now.'
+      : settings.biometricPrfSupported
+        ? 'Disable biometric unlock? Your identity, sessions, and messages will be re-encrypted back to a device-only key — nothing is lost, but biometric will no longer be required to open the app.'
+        : 'Disable biometric unlock?';
+    if (!confirm(message)) return;
+    setBioBusy(true);
+    try {
+      await disableBiometricLock();
+    } finally {
+      setBioBusy(false);
+    }
   };
 
   const [passwordModal, setPasswordModal] = useState<{
@@ -446,10 +485,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   }
                 }}
               />
-              {(bioBusy || bioError) && (
+              {(bioBusy || bioError || bioInfo) && (
                 <div className="px-6 pb-6 pt-2 space-y-2">
                   {bioBusy && <p className="text-zinc-500 text-xs text-center">Follow the prompt from your device…</p>}
                   {bioError && <p className="text-red-500 text-xs text-center">{bioError}</p>}
+                  {bioInfo && <p className="text-blue-400 text-xs text-center leading-relaxed">{bioInfo}</p>}
                 </div>
               )}
               <div className="h-px bg-white/5 mx-6" />
