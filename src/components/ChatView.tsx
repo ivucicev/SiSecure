@@ -207,13 +207,13 @@ export function ChatView() {
         }
 
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (currentChatId) {
-            sendMessage(currentChatId, 'Voice message', 'voice', reader.result as string, !!group);
-          }
-        };
-        reader.readAsDataURL(audioBlob);
+        if (!currentChatId) return;
+        try {
+          const dataUrl = await readAsDataURL(audioBlob);
+          sendMessage(currentChatId, 'Voice message', 'voice', dataUrl, !!group);
+        } catch (err) {
+          console.error('[SiSecure] Failed to read recorded voice message', err);
+        }
       };
 
       mediaRecorder.start();
@@ -246,7 +246,7 @@ export function ChatView() {
     }
   };
 
-  const readAsDataURL = (file: File): Promise<string> =>
+  const readAsDataURL = (file: Blob): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);

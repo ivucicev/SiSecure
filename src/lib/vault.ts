@@ -128,7 +128,7 @@ export async function tryUnlock(pin: string, pinSalt: string, pinVerifier: strin
 const ENC_PREFIX = 'sisecure-enc:';
 
 export async function encryptField(plaintext: string): Promise<string> {
-  if (!vaultCryptoKey) return plaintext;
+  if (plaintext == null || !vaultCryptoKey) return plaintext;
   return ENC_PREFIX + await aesEncrypt(vaultCryptoKey, plaintext);
 }
 
@@ -136,7 +136,11 @@ export async function encryptField(plaintext: string): Promise<string> {
 // (legacy plaintext data, or the vault was never enabled) — callers don't
 // need to know which case they're in. Returns a placeholder, not the raw
 // ciphertext, if the field is tagged encrypted but the vault is locked.
+// `value` is typed as `string`, but a bad upstream write (e.g. a FileReader
+// result read as null) can still land a real `null` in Dexie — guard it here
+// too, since this is the security-critical boundary, not just at call sites.
 export async function decryptField(value: string): Promise<string> {
+  if (value == null) return value;
   if (!value.startsWith(ENC_PREFIX)) return value;
   if (!vaultCryptoKey) return '[Encrypted — unlock to view]';
   try {

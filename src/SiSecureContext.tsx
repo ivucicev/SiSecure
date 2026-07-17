@@ -29,7 +29,7 @@ async function encryptMessageForStorage(message: Message): Promise<Message> {
   return {
     ...message,
     content: await encryptField(message.content),
-    mediaUrl: message.mediaUrl !== undefined ? await encryptField(message.mediaUrl) : undefined
+    mediaUrl: message.mediaUrl != null ? await encryptField(message.mediaUrl) : undefined
   };
 }
 
@@ -37,7 +37,7 @@ async function decryptMessageForDisplay(message: Message): Promise<Message> {
   return {
     ...message,
     content: await decryptField(message.content),
-    mediaUrl: message.mediaUrl !== undefined ? await decryptField(message.mediaUrl) : undefined
+    mediaUrl: message.mediaUrl != null ? await decryptField(message.mediaUrl) : undefined
   };
 }
 
