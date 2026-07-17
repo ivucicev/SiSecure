@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, QrCode, Camera, Check, Copy, Info, Keyboard, User, Shield } from 'lucide-react';
+import { X, QrCode, Camera, Check, Copy, Info, Keyboard, User, Shield, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { cn } from '../lib/utils';
@@ -14,46 +14,71 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
   const [manualKey, setManualKey] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
-  useEffect(() => {
-    let html5QrCode: Html5Qrcode | null = null;
-    let isMounted = true;
+  // Safe wrapper: Html5Qrcode's own stop() throws a plain string SYNCHRONOUSLY
+  // ("Cannot stop, scanner is not running or paused.") when called on an
+  // instance that never got past a successful start() — a `.catch()` on the
+  // return value doesn't help, since the throw happens before stop() returns
+  // anything to chain onto.
+  const safeStop = (instance: Html5Qrcode) => {
+    try {
+      instance.stop()?.catch(() => {});
+    } catch {
+      // not currently scanning — nothing to stop
+    }
+  };
 
-    const startScanner = async () => {
-      if (view !== 'scan') return;
-
-      // Wait a bit for AnimatePresence to mount the element
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const element = document.getElementById("reader");
-      if (!element || !isMounted) return;
-
+  // A callback ref fires exactly when the #reader div is actually attached to
+  // (or removed from) the DOM — unlike a fixed setTimeout, it isn't racing a
+  // guess against AnimatePresence's real exit-animation duration. The old
+  // code waited a flat 300ms then did document.getElementById("reader"); if
+  // the previous tab's exit transition ran any longer than that (motion's
+  // default easing, a slow device, reduced-motion settings changing timing),
+  // the element didn't exist yet, the effect silently returned, and the
+  // camera never started — no error, no retry, nothing in the console.
+  //
+  // Html5Qrcode's constructor ALSO throws synchronously (a plain string, not
+  // an Error) if document.getElementById(elementId) doesn't find the node at
+  // that exact instant — this whole block must stay inside a try/catch, not
+  // just the async start() call, or that throw crashes the ref callback
+  // during React's commit phase (surfaced as a swallowed "error occurred in
+  // a <div> component" with the tree unmounting, not a catchable rejection).
+  const readerRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      setCameraError(null);
       try {
-        html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText) => {
-            setScannedResult(decodedText);
-            handleConnect(decodedText);
-            html5QrCode?.stop();
-          },
-          () => {}
-        );
+        const html5QrCode = new Html5Qrcode('reader');
+        html5QrCodeRef.current = html5QrCode;
+        html5QrCode
+          .start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              setScannedResult(decodedText);
+              handleConnect(decodedText);
+              safeStop(html5QrCode);
+            },
+            () => {},
+          )
+          .catch((err) => {
+            console.error('[SiSecure] Camera failed to start:', err);
+            setCameraError(
+              err?.name === 'NotAllowedError'
+                ? 'Camera permission denied. Allow camera access in your browser settings and try again.'
+                : 'Could not start the camera. Use Manual instead, or check that this page is loaded over HTTPS.',
+            );
+          });
       } catch (err) {
-        console.error("Camera fail:", err);
+        console.error('[SiSecure] Camera init failed:', err);
+        setCameraError('Could not start the camera. Use Manual instead, or check that this page is loaded over HTTPS.');
       }
-    };
-
-    startScanner();
-
-    return () => {
-      isMounted = false;
-      if (html5QrCode) {
-        html5QrCode.stop().catch(() => {});
-      }
-    };
-  }, [view]);
+    } else if (html5QrCodeRef.current) {
+      safeStop(html5QrCodeRef.current);
+      html5QrCodeRef.current = null;
+    }
+  }, []);
 
   const handleConnect = async (data: string) => {
     try {
@@ -175,9 +200,16 @@ export function AddContactModal({ onClose }: { onClose: () => void }) {
                     </div>
                     <p className="text-blue-500 font-bold uppercase tracking-widest animate-pulse">Contact Identified</p>
                   </div>
+                ) : cameraError ? (
+                  <div className="h-64 flex flex-col items-center justify-center space-y-4 text-center px-4">
+                    <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed max-w-[240px]">{cameraError}</p>
+                  </div>
                 ) : (
                   <div className="relative w-full aspect-square max-w-[280px] rounded-[2rem] overflow-hidden border-2 border-blue-500/20 bg-zinc-950 flex items-center justify-center">
-                    <div id="reader" className="w-full h-full" />
+                    <div id="reader" ref={readerRef} className="w-full h-full" />
                     <div className="absolute inset-0 border-[40px] border-[#0A0A0A]/40 pointer-events-none" />
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-blue-500 border-dashed rounded-3xl animate-pulse pointer-events-none" />
                   </div>
