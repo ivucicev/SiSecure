@@ -90,7 +90,7 @@ export function Home() {
           
           {/* Search */}
           <div className="relative">
-            <Search className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-zinc-500 w-4 h-4" />
+            <Search className="absolute top-1/2 left-3 -translate-y-1/2 pointer-events-none text-zinc-500 w-4 h-4" />
             <input 
               type="text" 
               placeholder="Search locally..." 

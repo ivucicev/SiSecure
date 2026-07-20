@@ -39,6 +39,7 @@ const WakeUpInfoModal = lazy(() => import('./WakeUpInfoModal').then(m => ({ defa
 const VerifyContactModal = lazy(() => import('./VerifyContactModal').then(m => ({ default: m.VerifyContactModal })));
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+const COMPOSER_EMOJIS = ['😀', '😂', '😍', '😊', '😉', '🥲', '😢', '😮', '😴', '🤔', '👍', '👎', '🙏', '👀', '🙌', '💯', '🔥', '🎉', '❤️', '⭐', '✅', '❌', '🚀', '👋'];
 
 export function ChatView() {
   const { 
@@ -67,6 +68,7 @@ export function ChatView() {
   const [forwardingId, setForwardingId] = useState<string | null>(null);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
   const [isWakeUpInfoOpen, setIsWakeUpInfoOpen] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
   const [isReactionMenuId, setIsReactionMenuId] = useState<string | null>(null);
   const [selectedForwardingContacts, setSelectedForwardingContacts] = useState<string[]>([]);
@@ -80,6 +82,7 @@ export function ChatView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const contact = contacts.find(c => c.publicKey === currentChatId);
   const group = groups.find(g => g.id === currentChatId);
@@ -102,6 +105,18 @@ export function ChatView() {
     }
   };
 
+  // iOS Safari auto-scrolls the *outer document* to bring a focused input
+  // above the keyboard, on top of whatever the app itself does — but body is
+  // `overflow:hidden; height:100dvh` and is never meant to scroll on its own.
+  // On a short/new conversation that outer scroll has nothing internal to
+  // compensate it, so the whole layout shifts up and the only message ends up
+  // rendered above the visible viewport. Once there's enough content for
+  // scrollRef to have real scroll range, the internal scroll masks it, which
+  // is why this only shows up early in a chat.
+  const resetWindowScroll = () => {
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+
   // A single scrollToBottom() right after a resize/focus event isn't
   // reliable — the layout may not have finished reflowing to its final
   // (keyboard-open) size yet, and one fixed delay (previously 350ms)
@@ -111,9 +126,11 @@ export function ChatView() {
   // animation actually finishes at instead of assuming a fixed duration.
   const scrollToBottomSettled = () => {
     scrollToBottom();
+    resetWindowScroll();
     let elapsed = 0;
     const interval = setInterval(() => {
       scrollToBottom();
+      resetWindowScroll();
       elapsed += 100;
       if (elapsed >= 900) clearInterval(interval);
     }, 100);
@@ -129,10 +146,16 @@ export function ChatView() {
   // left the scroll position stuck wherever it was before the keyboard
   // pushed everything around, making the message list look empty/scrolled
   // to the wrong spot until a new message re-triggered the effect above.
-  // visualViewport's resize event fires as the keyboard animates in/out.
+  // visualViewport's resize event fires as the keyboard animates in/out;
+  // 'scroll' fires separately for the offset Safari applies while scrolling
+  // the focused input into view, which resize alone doesn't always catch.
   useEffect(() => {
     window.visualViewport?.addEventListener('resize', scrollToBottomSettled);
-    return () => window.visualViewport?.removeEventListener('resize', scrollToBottomSettled);
+    window.visualViewport?.addEventListener('scroll', scrollToBottomSettled);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', scrollToBottomSettled);
+      window.visualViewport?.removeEventListener('scroll', scrollToBottomSettled);
+    };
   }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
@@ -185,6 +208,30 @@ export function ChatView() {
         sendTypingSignal(contact.publicKey, false);
       }, 2000);
     }
+  };
+
+  useEffect(() => {
+    if (!isEmojiPickerOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isEmojiPickerOpen]);
+
+  const insertEmoji = (emoji: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? input.length;
+    const end = el?.selectionEnd ?? input.length;
+    const next = input.slice(0, start) + emoji + input.slice(end);
+    setInput(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const cursor = start + emoji.length;
+      el?.setSelectionRange(cursor, cursor);
+    });
   };
 
   const startRecording = async () => {
@@ -801,9 +848,34 @@ export function ChatView() {
               disabled={isRecording}
               className="w-full max-h-[120px] overflow-y-auto resize-none bg-zinc-900/50 border-none rounded-2xl py-3 pl-20 sm:pl-22 pr-10 sm:pr-12 text-sm leading-relaxed focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all font-light"
             />
-            <button className="absolute right-3 sm:right-4 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors">
+            <button
+              type="button"
+              onClick={() => setIsEmojiPickerOpen(o => !o)}
+              className={cn(
+                "absolute right-3 sm:right-4 bottom-2.5 transition-colors",
+                isEmojiPickerOpen ? "text-blue-500" : "text-zinc-500 hover:text-blue-500"
+              )}
+            >
               <Smile className="w-5 h-5" />
             </button>
+
+            {isEmojiPickerOpen && (
+              <div
+                ref={emojiPickerRef}
+                className="absolute bottom-full right-0 mb-2 w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1 p-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-xl z-20"
+              >
+                {COMPOSER_EMOJIS.map(emoji => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => insertEmoji(emoji)}
+                    className="text-lg leading-none p-1.5 rounded-lg hover:bg-white/5 hover:scale-125 transition-transform"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {recipientOffline && (

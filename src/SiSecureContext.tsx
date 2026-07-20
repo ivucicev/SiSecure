@@ -32,6 +32,10 @@ import {
 
 type OlmAccount = InstanceType<typeof Olm.Account>;
 
+// Also doubles as the contact-retry/stuck-send poll interval — see the
+// setInterval that calls heartbeatConnections alongside those.
+const HEARTBEAT_INTERVAL_MS = 10000;
+
 // At-rest encryption (src/lib/vault.ts) is separate from, and layered on
 // top of, the P2P wire encryption (Double Ratchet) messages already went
 // through in transit — this is about what sits in Dexie afterward, not
@@ -130,6 +134,12 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const olmAccountRef = useRef<OlmAccount | null>(null);
   const retryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const helloWaitersRef = useRef<Map<string, Array<() => void>>>(new Map());
+  // Last PING reply per peer — WebRTC's own 'close'/'error' events don't fire
+  // reliably on an abrupt disconnect (network drop, killed tab, sleep), so a
+  // stale connection can sit in connectionsRef looking .open forever. This
+  // app-level heartbeat is what actually catches that and flips isOnline back
+  // to false.
+  const lastPongRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => { profileRef.current = profile; }, [profile]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
@@ -493,6 +503,17 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (type === 'P2P_TYPING') {
       setTypingStatus(prev => ({ ...prev, [remotePublicKey]: payload.isTyping }));
+      return;
+    }
+
+    if (type === 'P2P_PING') {
+      const conn = connectionsRef.current.get(remotePublicKey);
+      try { conn?.send({ type: 'P2P_PONG' }); } catch { /* ignore */ }
+      return;
+    }
+
+    if (type === 'P2P_PONG') {
+      lastPongRef.current.set(remotePublicKey, Date.now());
     }
   };
 
@@ -503,6 +524,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (connectionsRef.current.get(conn.peer) === conn) {
         connectionsRef.current.delete(conn.peer);
       }
+      lastPongRef.current.delete(conn.peer);
       markContactOffline(conn.peer);
     };
 
@@ -534,9 +556,29 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const onConnectionReady = (conn: DataConnection) => {
     connectionsRef.current.set(conn.peer, conn);
+    lastPongRef.current.set(conn.peer, Date.now());
     markContactOnline(conn.peer);
     sendHello(conn);
     flushPendingMessages(conn.peer);
+  };
+
+  // Sends a PING to every open connection and drops (closes + marks offline)
+  // any peer that hasn't PONGed within two heartbeat intervals — catches the
+  // abrupt-disconnect case the DataConnection 'close'/'error' events miss.
+  const heartbeatConnections = () => {
+    const now = Date.now();
+    connectionsRef.current.forEach((conn, publicKey) => {
+      if (!conn.open) return;
+      const lastPong = lastPongRef.current.get(publicKey) ?? now;
+      if (now - lastPong > HEARTBEAT_INTERVAL_MS * 2) {
+        try { conn.close(); } catch { /* ignore */ }
+        connectionsRef.current.delete(publicKey);
+        lastPongRef.current.delete(publicKey);
+        markContactOffline(publicKey);
+        return;
+      }
+      try { conn.send({ type: 'P2P_PING' }); } catch { /* ignore */ }
+    });
   };
 
   const handlePeerError = (err: any) => {
@@ -576,6 +618,11 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const timer = setTimeout(() => {
         pendingConnectRef.current.delete(targetPublicKey);
+        try { conn.close(); } catch { /* ignore */ }
+        // A timed-out connect never fires 'close'/'error' on its own — without
+        // this, a contact whose last-known isOnline was true (from a prior
+        // session) stays stuck "online" forever if they're actually gone.
+        markContactOffline(targetPublicKey);
         reject(new Error('connect-timeout'));
       }, 9000);
 
@@ -662,7 +709,8 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       retryIntervalRef.current = setInterval(() => {
         attemptConnectAllContacts();
         retryStuckSends();
-      }, 10000);
+        heartbeatConnections();
+      }, HEARTBEAT_INTERVAL_MS);
     })();
 
     return () => {

@@ -186,7 +186,7 @@ export function ChatList() {
                 "text-xs truncate",
                 currentChatId === contact.publicKey ? "text-blue-400" : "text-zinc-500"
               )}>
-                Secure Session Active
+                {contact.isOnline ? 'Secure Session Active' : 'Offline'}
               </p>
               {!!unreadCounts[contact.publicKey] && (
                 <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
