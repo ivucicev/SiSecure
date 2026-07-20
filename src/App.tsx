@@ -11,6 +11,9 @@ import { BiometricUnlockScreen } from './components/BiometricUnlockScreen';
 import { db } from './lib/db';
 import { isVaultUnlocked } from './lib/vault';
 import { AnimatePresence, motion } from 'motion/react';
+import { DebugViewportOverlay } from './components/DebugViewportOverlay';
+
+const debugViewportEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
 
 // A returning user with a profile goes straight to Home and never needs any
 // of these three — no reason to ship them in the initial bundle.
@@ -135,10 +138,13 @@ export default function App() {
   }
 
   return (
-    <LockGate>
-      <SiSecureProvider>
-        <AppContent />
-      </SiSecureProvider>
-    </LockGate>
+    <>
+      {debugViewportEnabled && <DebugViewportOverlay />}
+      <LockGate>
+        <SiSecureProvider>
+          <AppContent />
+        </SiSecureProvider>
+      </LockGate>
+    </>
   );
 }
