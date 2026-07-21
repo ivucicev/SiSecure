@@ -2,7 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <!-- interactive-widget=resizes-content (Safari 16.4+, Chrome 108+) makes
+         the browser actually shrink the viewport when the on-screen keyboard
+         opens, instead of overlaying it and leaving the page's own layout
+         untouched — which is what was forcing Safari to auto-scroll the
+         whole page (header included) to bring the focused input above the
+         keyboard. Without this, no CSS/JS-only fix here can work reliably,
+         since the browser never tells the page its real visible height
+         changed until this is set. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
     <meta name="description" content="A pure peer-to-peer messenger with real end-to-end encryption. No server ever sees your messages, contacts, or metadata." />
     <meta name="format-detection" content="telephone=no" />
 
