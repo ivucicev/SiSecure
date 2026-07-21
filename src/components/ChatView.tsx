@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { MainContainer, ChatContainer, ConversationHeader, MessageList, MessageInput, InputToolbox } from '@chatscope/chat-ui-kit-react';
+import { ConversationHeader, MessageList, MessageInput } from '@chatscope/chat-ui-kit-react';
 import { 
   Send, 
   ArrowLeft, 
@@ -410,16 +410,16 @@ export function ChatView() {
         </AnimatePresence>
       </Suspense>
 
-      {/* ChatContainer's source (getChildren(children, [ConversationHeader,
-          MessageList, MessageInput, InputToolbox])) hard-filters direct
-          children to exactly those 4 component types and silently drops
-          anything else — a bare <header>/<div> composer got thrown away
-          entirely with no error. ConversationHeader.Content/.Actions/.Back
-          don't have that restriction (plain PropTypes.node), so our custom
-          markup lives inside those slots instead. */}
-      <MainContainer responsive={false} className="!border-0 !bg-transparent !overflow-hidden flex-1 min-h-0">
-      <ChatContainer className="!bg-transparent">
-
+      {/* ChatContainer forces its direct children into a fixed stacked order
+          (header, list, input, toolbox — never overlapping), and hard-filters
+          to exactly those 4 component types besides, silently dropping
+          anything else. It added no functional value we needed — MessageList
+          works standalone (that's the actual scroll-engine fix) — so it's
+          dropped in favor of our own flex column, which lets MessageInput's
+          buttons go back to sitting inline inside the pill instead of a
+          separate row below it. ConversationHeader still gets used since its
+          Content/Actions/Back slots accept arbitrary children fine on their
+          own, without ChatContainer's wrapping constraint. */}
       <ConversationHeader className="!shrink-0 !min-h-20 pt-[env(safe-area-inset-top)] !border-b !border-zinc-800/60 !bg-[#0A0A0A]/80 backdrop-blur-md !px-4 sm:!px-8">
         <ConversationHeader.Back className="md:hidden">
           <button
@@ -726,22 +726,13 @@ export function ChatView() {
       </div>
       </MessageList>
 
-      <MessageInput
-        value={input}
-        onChange={handleInputChange}
-        onSend={handleSend}
-        placeholder={isRecording ? "Recording..." : "Message..."}
-        disabled={isRecording}
-        attachButton={false}
-        activateAfterChange
-        className="!bg-[#0A0A0A] !border-zinc-800/60"
-      />
-
-      {/* InputToolbox always renders after MessageInput (ChatContainer's
-          fixed child order — see the note above), so the attach/emoji/mic/
-          wake-up row sits below the text field rather than inline inside it
-          like the old pill-shaped composer did. */}
-      <InputToolbox className="!bg-[#0A0A0A] relative">
+      {/* Image/paperclip/emoji sit absolutely-positioned over MessageInput's
+          own pill, same trick the original plain <textarea> composer used —
+          padding on .cs-message-input__content-editor-wrapper (index.css)
+          clears room for them. sendButton/attachButton are both off since
+          the send<->mic toggle button below (outside the pill, like the
+          original) replaces chatscope's built-in one. */}
+      <div className="p-3 sm:p-6 bg-[#0A0A0A] border-t border-zinc-800/60 relative">
         <AnimatePresence>
           {isRecording && (
             <motion.div
@@ -773,45 +764,58 @@ export function ChatView() {
           )}
         </AnimatePresence>
 
-        <div className="w-full flex items-center gap-1 px-2 py-1.5">
-          <button
-            onClick={() => {
-              if (fileInputRef.current) {
-                fileInputRef.current.accept = 'image/*';
-                fileInputRef.current.click();
-              }
-            }}
-            className="p-2 text-zinc-500 hover:text-blue-500 transition-colors"
-          >
-            <ImageIcon className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => {
-              if (fileInputRef.current) {
-                fileInputRef.current.accept = 'video/*,image/*';
-                fileInputRef.current.click();
-              }
-            }}
-            className="p-2 text-zinc-500 hover:text-blue-500 transition-colors"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
+        <div className="max-w-4xl mx-auto flex items-end gap-2 sm:gap-4">
+          <div className="flex-1 relative flex items-end">
+            <button
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.accept = 'image/*';
+                  fileInputRef.current.click();
+                }
+              }}
+              className="absolute left-3 sm:left-4 bottom-2.5 z-10 text-zinc-500 hover:text-blue-500 transition-colors"
+            >
+              <ImageIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.accept = 'video/*,image/*';
+                  fileInputRef.current.click();
+                }
+              }}
+              className="absolute left-10 sm:left-12 bottom-2.5 z-10 text-zinc-500 hover:text-blue-500 transition-colors"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
 
-          <div className="relative">
+            <MessageInput
+              value={input}
+              onChange={handleInputChange}
+              onSend={handleSend}
+              placeholder={isRecording ? "Recording..." : "Message..."}
+              disabled={isRecording}
+              attachButton={false}
+              sendButton={false}
+              activateAfterChange
+              className="!bg-transparent !border-0 w-full"
+            />
+
             <button
               type="button"
               onClick={() => setIsEmojiPickerOpen(o => !o)}
               className={cn(
-                "p-2 transition-colors",
+                "absolute right-3 sm:right-4 bottom-2.5 z-10 transition-colors",
                 isEmojiPickerOpen ? "text-blue-500" : "text-zinc-500 hover:text-blue-500"
               )}
             >
               <Smile className="w-5 h-5" />
             </button>
+
             {isEmojiPickerOpen && (
               <div
                 ref={emojiPickerRef}
-                className="absolute bottom-full left-0 mb-2 w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1 p-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-xl z-20"
+                className="absolute bottom-full right-0 mb-2 w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1 p-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-xl z-20"
               >
                 {COMPOSER_EMOJIS.map(emoji => (
                   <button
@@ -827,32 +831,36 @@ export function ChatView() {
             )}
           </div>
 
-          <div className="flex-1" />
-
           {recipientOffline && (
             <button
               onClick={() => setIsWakeUpInfoOpen(true)}
               title={`${group ? 'No one in this group is' : `${contact?.displayName} is`} offline right now — tap to Wake Up`}
-              className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 transition-all"
+              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 transition-all"
             >
-              <Bell className="w-4 h-4" />
+              <Bell className="w-5 h-5" />
             </button>
           )}
 
-          <button
-            onClick={startRecording}
-            className={cn(
-              "w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
-              isRecording && "bg-blue-600 text-white animate-pulse"
-            )}
-          >
-            <Mic className="w-4 h-4" />
-          </button>
+          {input.trim() ? (
+            <button
+              onClick={handleSend}
+              className="w-12 h-12 shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20 transition-all"
+            >
+              <Send className="w-5 h-5 rotate-45 -translate-y-0.5" />
+            </button>
+          ) : (
+            <button
+              onClick={startRecording}
+              className={cn(
+                "w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
+                isRecording && "bg-blue-600 text-white animate-pulse"
+              )}
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
         </div>
-      </InputToolbox>
-
-      </ChatContainer>
-      </MainContainer>
+      </div>
     </div>
   );
 }

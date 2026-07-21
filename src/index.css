@@ -101,6 +101,15 @@
   @apply bg-zinc-900/50;
 }
 
+/* Room for the image/paperclip/emoji buttons ChatView absolutely-positions
+   over this pill (see ChatView.tsx) — same trick the plain <textarea>
+   composer used before switching to MessageInput. */
+.cs-message-input__content-editor-wrapper {
+  border-radius: 1rem;
+  padding-left: 4.5rem;
+  padding-right: 2.75rem;
+}
+
 .cs-message-input__content-editor {
   background-color: transparent;
   color: theme('colors.zinc.300');
