@@ -169,6 +169,23 @@ export function ChatView() {
     unreadMessages.forEach(m => markAsRead(m.id));
   }, [messages, currentChatId, profile, markAsRead]);
 
+  // Every hook for this component must live above the `if (!contact &&
+  // !group) return null` guard below — once contact/group go null (e.g.
+  // navigating back to the conversation list), this component still
+  // re-renders once before unmounting, and a hook placed after the guard
+  // would silently stop running on that render: fewer hooks than the
+  // previous render, which React throws as error #300.
+  useEffect(() => {
+    if (!isEmojiPickerOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isEmojiPickerOpen]);
+
   if (!contact && !group) return null;
 
   const handleSend = () => {
@@ -201,17 +218,6 @@ export function ChatView() {
       }, 2000);
     }
   };
-
-  useEffect(() => {
-    if (!isEmojiPickerOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
-        setIsEmojiPickerOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isEmojiPickerOpen]);
 
   const insertEmoji = (emoji: string) => {
     const el = textareaRef.current;
