@@ -42,6 +42,14 @@ const VerifyContactModal = lazy(() => import('./VerifyContactModal').then(m => (
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 const COMPOSER_EMOJIS = ['😀', '😂', '😍', '😊', '😉', '🥲', '😢', '😮', '😴', '🤔', '👍', '👎', '🙏', '👀', '🙌', '💯', '🔥', '🎉', '❤️', '⭐', '✅', '❌', '🚀', '👋'];
 
+// @chatscope/chat-ui-kit-react types MessageList's ref as a plain
+// Ref<HTMLDivElement> (its ChatComponentPropsChildrenRef<P,"div"> generic),
+// but at runtime it's actually a useImperativeHandle exposing this — a gap
+// in their .d.ts, not a real HTMLDivElement.
+interface MessageListHandle {
+  scrollToBottom: (scrollBehavior?: 'auto' | 'smooth') => void;
+}
+
 export function ChatView() {
   const { 
     currentChatId, 
@@ -81,8 +89,17 @@ export function ChatView() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingCancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  // MessageList's own scroll-to-bottom-on-mount only fires once, at mount —
+  // but on a real device, messages arrive from an async Dexie query that's
+  // still empty at that point (decryption isn't instant). By the time the
+  // real messages land, MessageList's internal "was I already at the
+  // bottom?" check snapshots against that earlier empty-but-tall container
+  // and reads it as "not stuck to bottom", so it skips auto-scrolling
+  // entirely — reproduced by seeding messages into Dexie after the chat was
+  // already open. Its type declarations don't correctly type this ref as
+  // the imperative handle it actually is at runtime (see MessageListHandle).
+  const messageListRef = useRef<MessageListHandle>(null);
 
   const contact = contacts.find(c => c.publicKey === currentChatId);
   const group = groups.find(g => g.id === currentChatId);
@@ -98,6 +115,14 @@ export function ChatView() {
     if (!searchQuery) return messages;
     return messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
+
+  // Forces the scroll rather than trusting MessageList's own "was already at
+  // the bottom" auto-scroll — see the messageListRef comment above for why
+  // that heuristic misses the actual real-world case (messages loading in
+  // async after the chat's already open).
+  useEffect(() => {
+    messageListRef.current?.scrollToBottom('auto');
+  }, [filteredMessages]);
 
   // Mark unseen messages as read
   useEffect(() => {
@@ -541,6 +566,9 @@ export function ChatView() {
           every switch instead of relying on its sticky-diff heuristic across
           unrelated conversations. */}
       <MessageList
+        // Their .d.ts types this as Ref<HTMLDivElement> — wrong at runtime
+        // (see the MessageListHandle comment above); cast around it.
+        ref={messageListRef as unknown as React.Ref<HTMLDivElement>}
         key={currentChatId}
         className="flex-1"
         autoScrollToBottom
