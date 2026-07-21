@@ -421,6 +421,15 @@ export function ChatView() {
         </AnimatePresence>
       </Suspense>
 
+      {/* MainContainer/ChatContainer were tried here to mirror the chatscope
+          demo's structure more literally, but ChatContainer's source
+          (getChildren(children, [ConversationHeader, MessageList,
+          MessageInput, InputToolbox])) hard-filters to exactly those 4
+          component types and silently drops anything else — our custom
+          <header> and composer <div> aren't instances of those types, so
+          they were being thrown away entirely. MessageList below (used
+          directly, not through ChatContainer) is the piece of their kit that
+          actually matters for the bug we're fixing. */}
       {/* Header */}
       <header className="shrink-0 min-h-20 pt-[env(safe-area-inset-top)] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md">
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
