@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageList } from '@chatscope/chat-ui-kit-react';
+import { MainContainer, ChatContainer, ConversationHeader, MessageList, MessageInput, InputToolbox } from '@chatscope/chat-ui-kit-react';
 import { 
   Send, 
   ArrowLeft, 
@@ -99,14 +99,6 @@ export function ChatView() {
     return messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
 
-  // Composer grows with content up to a cap, then scrolls internally.
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, [input]);
-
   // Mark unseen messages as read
   useEffect(() => {
     if (!profile || !currentChatId) return;
@@ -151,8 +143,11 @@ export function ChatView() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+  // MessageInput's onChange hands back innerHtml/textContent/innerText
+  // rather than a DOM event — chatscope's composer is a contentEditable div,
+  // not a textarea, so there's no selectionStart/selectionEnd to key off of.
+  const handleInputChange = (_innerHtml: string, textContent: string) => {
+    setInput(textContent);
 
     if (contact) {
       if (!isTypingRef.current) {
@@ -168,17 +163,11 @@ export function ChatView() {
     }
   };
 
+  // No cursor position to insert at (see handleInputChange) — appends to the
+  // end instead. `activateAfterChange` on MessageInput moves focus/caret
+  // there to match.
   const insertEmoji = (emoji: string) => {
-    const el = textareaRef.current;
-    const start = el?.selectionStart ?? input.length;
-    const end = el?.selectionEnd ?? input.length;
-    const next = input.slice(0, start) + emoji + input.slice(end);
-    setInput(next);
-    requestAnimationFrame(() => {
-      el?.focus();
-      const cursor = start + emoji.length;
-      el?.setSelectionRange(cursor, cursor);
-    });
+    setInput(prev => prev + emoji);
   };
 
   const startRecording = async () => {
@@ -421,121 +410,127 @@ export function ChatView() {
         </AnimatePresence>
       </Suspense>
 
-      {/* MainContainer/ChatContainer were tried here to mirror the chatscope
-          demo's structure more literally, but ChatContainer's source
-          (getChildren(children, [ConversationHeader, MessageList,
-          MessageInput, InputToolbox])) hard-filters to exactly those 4
-          component types and silently drops anything else — our custom
-          <header> and composer <div> aren't instances of those types, so
-          they were being thrown away entirely. MessageList below (used
-          directly, not through ChatContainer) is the piece of their kit that
-          actually matters for the bug we're fixing. */}
-      {/* Header */}
-      <header className="shrink-0 min-h-20 pt-[env(safe-area-inset-top)] border-b border-zinc-800/60 flex items-center justify-between px-4 sm:px-8 bg-[#0A0A0A]/80 backdrop-blur-md">
-        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-          <button 
+      {/* ChatContainer's source (getChildren(children, [ConversationHeader,
+          MessageList, MessageInput, InputToolbox])) hard-filters direct
+          children to exactly those 4 component types and silently drops
+          anything else — a bare <header>/<div> composer got thrown away
+          entirely with no error. ConversationHeader.Content/.Actions/.Back
+          don't have that restriction (plain PropTypes.node), so our custom
+          markup lives inside those slots instead. */}
+      <MainContainer responsive={false} className="!border-0 !bg-transparent !overflow-hidden flex-1 min-h-0">
+      <ChatContainer className="!bg-transparent">
+
+      <ConversationHeader className="!shrink-0 !min-h-20 pt-[env(safe-area-inset-top)] !border-b !border-zinc-800/60 !bg-[#0A0A0A]/80 backdrop-blur-md !px-4 sm:!px-8">
+        <ConversationHeader.Back className="md:hidden">
+          <button
             onClick={() => setCurrentChatId(null)}
-            className="p-2 hover:bg-white/5 rounded-full md:hidden text-zinc-400"
+            className="p-2 hover:bg-white/5 rounded-full text-zinc-400"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          
-          {!isSearching ? (
-            <>
-              <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full bg-zinc-800/50 border border-white/5 flex items-center justify-center overflow-hidden">
-                  {contact ? (
-                    contact.avatar ? <img src={contact.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-lg font-medium text-zinc-400">{contact.displayName.charAt(0)}</span>
-                  ) : (
-                    <Boxes className="w-5 h-5 text-purple-400" />
+        </ConversationHeader.Back>
+
+        <ConversationHeader.Content>
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            {!isSearching ? (
+              <>
+                <div className="relative shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-zinc-800/50 border border-white/5 flex items-center justify-center overflow-hidden">
+                    {contact ? (
+                      contact.avatar ? <img src={contact.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-lg font-medium text-zinc-400">{contact.displayName.charAt(0)}</span>
+                    ) : (
+                      <Boxes className="w-5 h-5 text-purple-400" />
+                    )}
+                  </div>
+                  {contact?.isOnline && (
+                    <div className="absolute -bottom-1 -right-1 p-1 bg-green-500 rounded-full border-4 border-[#0A0A0A]" />
                   )}
                 </div>
-                {contact?.isOnline && (
-                  <div className="absolute -bottom-1 -right-1 p-1 bg-green-500 rounded-full border-4 border-[#0A0A0A]" />
-                )}
-              </div>
-              <div className="truncate">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-zinc-100 truncate">{contact?.displayName || group?.name}</h3>
-                  <span className={cn(
-                    "shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-tighter",
-                    group
-                      ? "bg-purple-500/10 text-purple-500 border-purple-500/20"
-                      : contact?.verified
-                        ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                  )}>
-                    {group ? 'Peer Group' : contact?.verified ? 'Verified' : 'Unverified'}
-                  </span>
+                <div className="truncate">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-zinc-100 truncate">{contact?.displayName || group?.name}</h3>
+                    <span className={cn(
+                      "shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-tighter",
+                      group
+                        ? "bg-purple-500/10 text-purple-500 border-purple-500/20"
+                        : contact?.verified
+                          ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                          : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    )}>
+                      {group ? 'Peer Group' : contact?.verified ? 'Verified' : 'Unverified'}
+                    </span>
+                  </div>
+                  {contact && typingStatus[contact.publicKey] ? (
+                    <p className="text-[10px] text-blue-500 animate-pulse font-bold uppercase tracking-widest">Typing encrypted reply...</p>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 font-mono tracking-tighter uppercase truncate">
+                      {group ? `${group.members.length} Agents Connected` : 'Direct P2P Link Established'}
+                    </p>
+                  )}
                 </div>
-                {contact && typingStatus[contact.publicKey] ? (
-                  <p className="text-[10px] text-blue-500 animate-pulse font-bold uppercase tracking-widest">Typing encrypted reply...</p>
-                ) : (
-                  <p className="text-[10px] text-zinc-500 font-mono tracking-tighter uppercase truncate">
-                    {group ? `${group.members.length} Agents Connected` : 'Direct P2P Link Established'}
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex-1 flex items-center bg-zinc-900/50 rounded-xl px-4 py-2 border border-white/5"
-            >
-              <Search className="w-4 h-4 text-zinc-500 mr-2" />
-              <input 
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search messages..."
-                className="bg-transparent border-none outline-none text-sm w-full text-zinc-200 placeholder:text-zinc-600"
-              />
-              <button onClick={() => { setIsSearching(false); setSearchQuery(''); }} className="p-1 hover:bg-white/5 rounded-md text-zinc-500">
-                <X className="w-4 h-4" />
-              </button>
-            </motion.div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 shrink-0">
-          {group && (
-            <button
-              onClick={() => setIsGroupInfoOpen(true)}
-              className="p-2.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-400 transition-colors flex items-center gap-2 sm:px-4 group"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">Invite Agent</span>
-            </button>
-          )}
-          <button
-            onClick={() => setIsSearching(!isSearching)}
-            className={cn(
-              "p-2.5 hover:bg-white/5 rounded-xl transition-colors",
-              isSearching ? "text-blue-500 bg-blue-500/10" : "text-zinc-500"
+              </>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex-1 flex items-center bg-zinc-900/50 rounded-xl px-4 py-2 border border-white/5"
+              >
+                <Search className="w-4 h-4 text-zinc-500 mr-2" />
+                <input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search messages..."
+                  className="bg-transparent border-none outline-none text-sm w-full text-zinc-200 placeholder:text-zinc-600"
+                />
+                <button onClick={() => { setIsSearching(false); setSearchQuery(''); }} className="p-1 hover:bg-white/5 rounded-md text-zinc-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
             )}
-          >
-            <Search className="w-5 h-5" />
-          </button>
-          {contact && (
+          </div>
+        </ConversationHeader.Content>
+
+        <ConversationHeader.Actions>
+          <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 shrink-0">
+            {group && (
+              <button
+                onClick={() => setIsGroupInfoOpen(true)}
+                className="p-2.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-400 transition-colors flex items-center gap-2 sm:px-4 group"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">Invite Agent</span>
+              </button>
+            )}
             <button
-              onClick={() => setIsVerifyOpen(true)}
-              title="Verify contact"
+              onClick={() => setIsSearching(!isSearching)}
               className={cn(
                 "p-2.5 hover:bg-white/5 rounded-xl transition-colors",
-                contact.verified ? "text-blue-500" : "text-amber-500"
+                isSearching ? "text-blue-500 bg-blue-500/10" : "text-zinc-500"
               )}
             >
-              <Shield className="w-5 h-5" />
+              <Search className="w-5 h-5" />
             </button>
-          )}
-          {/* Not yet wired to anything — dropped on mobile so the contact
-              name isn't squeezed down to a couple of characters. */}
-          <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
-            <MoreVertical className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
+            {contact && (
+              <button
+                onClick={() => setIsVerifyOpen(true)}
+                title="Verify contact"
+                className={cn(
+                  "p-2.5 hover:bg-white/5 rounded-xl transition-colors",
+                  contact.verified ? "text-blue-500" : "text-amber-500"
+                )}
+              >
+                <Shield className="w-5 h-5" />
+              </button>
+            )}
+            {/* Not yet wired to anything — dropped on mobile so the contact
+                name isn't squeezed down to a couple of characters. */}
+            <button className="hidden sm:block p-2.5 hover:bg-white/5 rounded-xl text-zinc-500 transition-colors">
+              <MoreVertical className="w-5 h-5" />
+            </button>
+          </div>
+        </ConversationHeader.Actions>
+      </ConversationHeader>
 
       {/* Message Area — chatscope's MessageList handles the scroll/keyboard
           mechanics (ResizeObserver-driven, sticky-to-bottom tracking, Chrome
@@ -731,27 +726,29 @@ export function ChatView() {
       </div>
       </MessageList>
 
-      {/* Input Area — a plain flex sibling after the scrollable message
-          list, not nested inside it. A prior attempt made this sticky
-          *inside* the scroll container on the theory that sticky tracks
-          the visible viewport better than height math on iOS — true when
-          scrolled, but sticky only pins once you scroll past an element's
-          natural position. On a short conversation the message list never
-          needs to scroll, so the composer just sat at its natural
-          position right after the last message — nowhere near the bottom
-          of the screen, leaving a large empty gap below it. flex-1 on the
-          message list above always fills the available height regardless
-          of content length, so a composer placed after it as a normal
-          sibling is always at the visual bottom — no scroll-dependence,
-          no edge case for short chats. */}
-      <div className="p-3 sm:p-6 pb-0 bg-[#0A0A0A] border-t border-zinc-800/60">
+      <MessageInput
+        value={input}
+        onChange={handleInputChange}
+        onSend={handleSend}
+        placeholder={isRecording ? "Recording..." : "Message..."}
+        disabled={isRecording}
+        attachButton={false}
+        activateAfterChange
+        className="!bg-[#0A0A0A] !border-zinc-800/60"
+      />
+
+      {/* InputToolbox always renders after MessageInput (ChatContainer's
+          fixed child order — see the note above), so the attach/emoji/mic/
+          wake-up row sits below the text field rather than inline inside it
+          like the old pill-shaped composer did. */}
+      <InputToolbox className="!bg-[#0A0A0A] relative">
         <AnimatePresence>
           {isRecording && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="absolute inset-x-6 bottom-32 glass rounded-2xl p-4 flex items-center justify-between z-20"
+              className="absolute inset-x-6 bottom-full mb-2 glass rounded-2xl p-4 flex items-center justify-between z-20"
             >
               <div className="flex items-center gap-4">
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
@@ -776,60 +773,45 @@ export function ChatView() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-4xl mx-auto flex items-end gap-2 sm:gap-4">
-          <div className="flex-1 relative flex items-end">
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = 'image/*';
-                  fileInputRef.current.click();
-                }
-              }}
-              className="absolute left-3 sm:left-4 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors"
-            >
-              <ImageIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = 'video/*,image/*';
-                  fileInputRef.current.click();
-                }
-              }}
-              className="absolute left-10 sm:left-12 bottom-2.5 text-zinc-500 hover:text-blue-500 transition-colors"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder={isRecording ? "Recording..." : "Message..."}
-              disabled={isRecording}
-              className="w-full max-h-[120px] overflow-y-auto resize-none bg-zinc-900/50 border-none rounded-2xl py-3 pl-20 sm:pl-22 pr-10 sm:pr-12 text-sm leading-relaxed focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all font-light"
-            />
+        <div className="w-full flex items-center gap-1 px-2 py-1.5">
+          <button
+            onClick={() => {
+              if (fileInputRef.current) {
+                fileInputRef.current.accept = 'image/*';
+                fileInputRef.current.click();
+              }
+            }}
+            className="p-2 text-zinc-500 hover:text-blue-500 transition-colors"
+          >
+            <ImageIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => {
+              if (fileInputRef.current) {
+                fileInputRef.current.accept = 'video/*,image/*';
+                fileInputRef.current.click();
+              }
+            }}
+            className="p-2 text-zinc-500 hover:text-blue-500 transition-colors"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
+          <div className="relative">
             <button
               type="button"
               onClick={() => setIsEmojiPickerOpen(o => !o)}
               className={cn(
-                "absolute right-3 sm:right-4 bottom-2.5 transition-colors",
+                "p-2 transition-colors",
                 isEmojiPickerOpen ? "text-blue-500" : "text-zinc-500 hover:text-blue-500"
               )}
             >
               <Smile className="w-5 h-5" />
             </button>
-
             {isEmojiPickerOpen && (
               <div
                 ref={emojiPickerRef}
-                className="absolute bottom-full right-0 mb-2 w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1 p-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-xl z-20"
+                className="absolute bottom-full left-0 mb-2 w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1 p-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-xl z-20"
               >
                 {COMPOSER_EMOJIS.map(emoji => (
                   <button
@@ -845,36 +827,32 @@ export function ChatView() {
             )}
           </div>
 
+          <div className="flex-1" />
+
           {recipientOffline && (
             <button
               onClick={() => setIsWakeUpInfoOpen(true)}
               title={`${group ? 'No one in this group is' : `${contact?.displayName} is`} offline right now — tap to Wake Up`}
-              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 transition-all"
+              className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-500 transition-all"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
             </button>
           )}
 
-          {input.trim() ? (
-            <button
-              onClick={handleSend}
-              className="w-12 h-12 shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20 transition-all"
-            >
-              <Send className="w-5 h-5 rotate-45 -translate-y-0.5" />
-            </button>
-          ) : (
-            <button
-              onClick={startRecording}
-              className={cn(
-                "w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
-                isRecording && "bg-blue-600 text-white animate-pulse"
-              )}
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={startRecording}
+            className={cn(
+              "w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-all bg-zinc-800 text-zinc-400 hover:text-blue-500",
+              isRecording && "bg-blue-600 text-white animate-pulse"
+            )}
+          >
+            <Mic className="w-4 h-4" />
+          </button>
         </div>
-      </div>
+      </InputToolbox>
+
+      </ChatContainer>
+      </MainContainer>
     </div>
   );
 }

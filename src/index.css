@@ -84,11 +84,38 @@
   @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
 }
 
-/* chat-ui-kit-styles ships a light theme by default (see main.tsx) — only
-   the message list is used here (ChatView), so only its surfaces need
-   re-skinning to match the rest of the app's dark palette. */
+/* chat-ui-kit-styles ships a light theme by default (see main.tsx) —
+   re-skinning the surfaces ChatView actually uses (MessageList, the
+   MessageInput text pill, and the ConversationHeader) to the app's dark
+   palette. Outer wrapper backgrounds are handled inline via Tailwind
+   `!` classes on the components themselves; what's here is the stuff
+   those classes can't reach (nested nodes chat-ui-kit-styles renders
+   internally, like the content-editable pill and its placeholder). */
 .cs-message-list {
   background-color: transparent;
+  color: inherit;
+}
+
+.cs-message-input__content-editor-wrapper,
+.cs-message-input__content-editor-container {
+  @apply bg-zinc-900/50;
+}
+
+.cs-message-input__content-editor {
+  background-color: transparent;
+  color: theme('colors.zinc.300');
+}
+
+.cs-message-input__content-editor[data-placeholder]:empty::before {
+  color: theme('colors.zinc.600');
+}
+
+.cs-conversation-header {
+  color: inherit;
+}
+
+.cs-conversation-header__user-name,
+.cs-conversation-header__info {
   color: inherit;
 }
 
