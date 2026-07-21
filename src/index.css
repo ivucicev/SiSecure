@@ -23,16 +23,20 @@
 
   body {
     @apply bg-obsidian-950 text-zinc-100 font-sans antialiased selection:bg-blue-500/30;
-    /* Plain height:100dvh, no JS. A --vvh custom property driven from
-       window.visualViewport.height was tried here to force-track the
-       keyboard on a device where dvh alone measurably didn't — but the JS
-       resize handler firing on every visualViewport tick caused a jarring
-       snap/jump each time instead of a smooth transition, worse than the
-       problem it fixed. Reverted; if dvh alone still isn't right on some
-       device, that needs its own fix, not this one back. */
+    /* overflow:hidden here (removed) was blocking rubber-band bounce, but it
+       also blocks the browser's OWN native "scroll the focused input above
+       the keyboard" behavior — every keyboard-open bug chased in this file's
+       history (--vvh, window.scrollTo, ResizeObserver) was really this: the
+       body couldn't scroll, so the browser had nowhere valid to put the
+       focused input, and every JS workaround fought that in a different way.
+       Compared against chatscope's own reference demo (inspected directly:
+       body/html there are overflow:visible, position:static — no lock at
+       all) — that's what "just works" there. overscroll-behavior:none is
+       the actual modern tool for blocking bounce without blocking scroll
+       itself, which is the distinction overflow:hidden couldn't make. */
     width: 100%;
     height: 100dvh;
-    overflow: hidden;
+    overscroll-behavior-y: none;
     touch-action: manipulation;
   }
 
