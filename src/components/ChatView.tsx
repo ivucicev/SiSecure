@@ -105,18 +105,6 @@ export function ChatView() {
     }
   };
 
-  // iOS Safari auto-scrolls the *outer document* to bring a focused input
-  // above the keyboard, on top of whatever the app itself does — but body is
-  // `overflow:hidden; height:100dvh` and is never meant to scroll on its own.
-  // On a short/new conversation that outer scroll has nothing internal to
-  // compensate it, so the whole layout shifts up and the only message ends up
-  // rendered above the visible viewport. Once there's enough content for
-  // scrollRef to have real scroll range, the internal scroll masks it, which
-  // is why this only shows up early in a chat.
-  const resetWindowScroll = () => {
-    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
-  };
-
   // A single scrollToBottom() right after a resize/focus event isn't
   // reliable — the layout may not have finished reflowing to its final
   // (keyboard-open) size yet, and one fixed delay (previously 350ms)
@@ -124,13 +112,17 @@ export function ChatView() {
   // Poll instead of guessing a single magic number: re-run every 100ms
   // for up to 900ms, which reliably catches whatever point the keyboard
   // animation actually finishes at instead of assuming a fixed duration.
+  //
+  // Deliberately does NOT touch window.scrollTo/scrollY — a prior version of
+  // this did, to fight what looked like the outer document scrolling. That
+  // fought iOS Safari's own native "scroll focused input above the keyboard"
+  // behavior instead, yanking the page back every 100ms and making the
+  // composer itself flicker in and out of view while the keyboard was up.
   const scrollToBottomSettled = () => {
     scrollToBottom();
-    resetWindowScroll();
     let elapsed = 0;
     const interval = setInterval(() => {
       scrollToBottom();
-      resetWindowScroll();
       elapsed += 100;
       if (elapsed >= 900) clearInterval(interval);
     }, 100);
