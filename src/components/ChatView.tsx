@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { MessageList } from '@chatscope/chat-ui-kit-react';
 import { 
   Send, 
   ArrowLeft, 
@@ -80,7 +81,6 @@ export function ChatView() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingCancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -98,31 +98,6 @@ export function ChatView() {
     if (!searchQuery) return messages;
     return messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
-
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [filteredMessages]);
-
-  // Re-pin to bottom on any actual size change of the message container
-  // itself — this is what a keyboard opening/closing (or --vvh updating, or
-  // orientation changing) really is, at the one element that matters. Chasing
-  // this through visualViewport 'resize'/'scroll' events plus a fixed-window
-  // poll kept landing wrong on specific devices (either too early, or fighting
-  // native scroll behavior); ResizeObserver instead reacts to the container's
-  // real layout size the moment it settles, no timing guesses.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => scrollToBottom());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
   useEffect(() => {
@@ -553,11 +528,22 @@ export function ChatView() {
         </div>
       </header>
 
-      {/* Message Area */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 pb-[3px] space-y-6 scroll-smooth"
+      {/* Message Area — chatscope's MessageList handles the scroll/keyboard
+          mechanics (ResizeObserver-driven, sticky-to-bottom tracking, Chrome
+          mobile + Firefox scroll quirks already patched upstream) after our
+          own hand-rolled version of the same thing kept regressing across
+          multiple device-specific fixes. `key={currentChatId}` remounts it
+          per conversation so autoScrollToBottomOnMount gives a clean jump on
+          every switch instead of relying on its sticky-diff heuristic across
+          unrelated conversations. */}
+      <MessageList
+        key={currentChatId}
+        className="flex-1"
+        autoScrollToBottom
+        autoScrollToBottomOnMount
+        scrollBehavior="smooth"
       >
+      <div className="p-4 sm:p-8 pb-[3px] space-y-6">
         <div className="flex justify-center my-6">
           <div className="glass px-4 py-1.5 rounded-full flex items-center gap-2">
             <Lock className="w-3 h-3 text-zinc-500" />
@@ -566,7 +552,7 @@ export function ChatView() {
         </div>
 
         {searchQuery && filteredMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-4">
+          <div className="flex flex-col items-center justify-center py-24 text-zinc-500 space-y-4">
             <div className="p-4 bg-zinc-900/50 rounded-full">
               <MessageCircle className="w-8 h-8 opacity-20" />
             </div>
@@ -734,6 +720,7 @@ export function ChatView() {
           );
         })}
       </div>
+      </MessageList>
 
       {/* Input Area — a plain flex sibling after the scrollable message
           list, not nested inside it. A prior attempt made this sticky
@@ -809,7 +796,6 @@ export function ChatView() {
               rows={1}
               value={input}
               onChange={handleInputChange}
-              onFocus={scrollToBottom}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

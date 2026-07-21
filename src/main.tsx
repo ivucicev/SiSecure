@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
 import './index.css';
 
 // See the --vvh comment in index.css — plain 100dvh doesn't track the

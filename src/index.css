@@ -83,3 +83,21 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
 }
+
+/* chat-ui-kit-styles ships a light theme by default (see main.tsx) — only
+   the message list is used here (ChatView), so only its surfaces need
+   re-skinning to match the rest of the app's dark palette. */
+.cs-message-list {
+  background-color: transparent;
+  color: inherit;
+}
+
+.ps__thumb-y,
+.ps__thumb-x {
+  @apply bg-zinc-700;
+}
+
+.ps__rail-y:hover .ps__thumb-y,
+.ps__rail-x:hover .ps__thumb-x {
+  @apply bg-zinc-600;
+}
