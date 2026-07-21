@@ -105,49 +105,23 @@ export function ChatView() {
     }
   };
 
-  // A single scrollToBottom() right after a resize/focus event isn't
-  // reliable — the layout may not have finished reflowing to its final
-  // (keyboard-open) size yet, and one fixed delay (previously 350ms)
-  // guessed wrong on some devices, still landing short of true bottom.
-  // Poll instead of guessing a single magic number: re-run every 100ms
-  // for up to 900ms, which reliably catches whatever point the keyboard
-  // animation actually finishes at instead of assuming a fixed duration.
-  //
-  // Deliberately does NOT touch window.scrollTo/scrollY — a prior version of
-  // this did, to fight what looked like the outer document scrolling. That
-  // fought iOS Safari's own native "scroll focused input above the keyboard"
-  // behavior instead, yanking the page back every 100ms and making the
-  // composer itself flicker in and out of view while the keyboard was up.
-  const scrollToBottomSettled = () => {
-    scrollToBottom();
-    let elapsed = 0;
-    const interval = setInterval(() => {
-      scrollToBottom();
-      elapsed += 100;
-      if (elapsed >= 900) clearInterval(interval);
-    }, 100);
-  };
-
   useEffect(() => {
     scrollToBottom();
   }, [filteredMessages]);
 
-  // The message list only re-scrolled when the messages array itself
-  // changed — not when the on-screen keyboard opens and reflows the
-  // layout around it. First time focusing the composer in a chat, that
-  // left the scroll position stuck wherever it was before the keyboard
-  // pushed everything around, making the message list look empty/scrolled
-  // to the wrong spot until a new message re-triggered the effect above.
-  // visualViewport's resize event fires as the keyboard animates in/out;
-  // 'scroll' fires separately for the offset Safari applies while scrolling
-  // the focused input into view, which resize alone doesn't always catch.
+  // Re-pin to bottom on any actual size change of the message container
+  // itself — this is what a keyboard opening/closing (or --vvh updating, or
+  // orientation changing) really is, at the one element that matters. Chasing
+  // this through visualViewport 'resize'/'scroll' events plus a fixed-window
+  // poll kept landing wrong on specific devices (either too early, or fighting
+  // native scroll behavior); ResizeObserver instead reacts to the container's
+  // real layout size the moment it settles, no timing guesses.
   useEffect(() => {
-    window.visualViewport?.addEventListener('resize', scrollToBottomSettled);
-    window.visualViewport?.addEventListener('scroll', scrollToBottomSettled);
-    return () => {
-      window.visualViewport?.removeEventListener('resize', scrollToBottomSettled);
-      window.visualViewport?.removeEventListener('scroll', scrollToBottomSettled);
-    };
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => scrollToBottom());
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Composer grows with content up to a cap, then scrolls internally.
@@ -835,7 +809,7 @@ export function ChatView() {
               rows={1}
               value={input}
               onChange={handleInputChange}
-              onFocus={scrollToBottomSettled}
+              onFocus={scrollToBottom}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
