@@ -575,7 +575,14 @@ export function ChatView() {
         autoScrollToBottomOnMount
         scrollBehavior="smooth"
       >
-      <div className="p-4 sm:p-8 pb-[3px] space-y-6">
+      {/* min-h-full + flex column + justify-end pins content to the bottom
+          of the scrollable area when it's shorter than the viewport (a
+          short/new conversation) — no gap between the last message and the
+          composer regardless of what the keyboard/body does. Once content
+          overflows this container's height, justify-end has no visible
+          effect (there's nothing left to push down), so long conversations
+          still scroll top-to-bottom exactly as before. */}
+      <div className="min-h-full flex flex-col justify-end p-4 sm:p-8 pb-[3px] space-y-6">
         <div className="flex justify-center my-6">
           <div className="glass px-4 py-1.5 rounded-full flex items-center gap-2">
             <Lock className="w-3 h-3 text-zinc-500" />
