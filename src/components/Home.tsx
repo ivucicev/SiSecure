@@ -11,10 +11,12 @@ import {
   MoreVertical,
   LogOut,
   Boxes,
-  Flame
+  Flame,
+  X
 } from 'lucide-react';
 import { ChatList } from './ChatList';
 import { ChatView } from './ChatView';
+import { MessageSearchResults } from './MessageSearchResults';
 import { generateId, cn } from '../lib/utils';
 import { generateRoomKey, exportKeyToUrlSafe } from '../lib/tempCrypto';
 
@@ -32,6 +34,7 @@ export function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [hostingRoom, setHostingRoom] = useState<{ roomId: string; roomKeyB64: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const startTempRoom = async () => {
     const key = await generateRoomKey();
@@ -91,17 +94,34 @@ export function Home() {
           {/* Search */}
           <div className="relative">
             <Search className="absolute top-1/2 left-3 -translate-y-1/2 pointer-events-none text-zinc-500 w-4 h-4" />
-            <input 
-              type="text" 
-              placeholder="Search locally..." 
-              className="w-full bg-zinc-900/50 border-none rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all"
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search locally..."
+              className="w-full bg-zinc-900/50 border-none rounded-xl py-2 pl-10 pr-9 text-sm focus:ring-1 focus:ring-blue-500 text-zinc-300 placeholder:text-zinc-600 transition-all"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Chat List */}
+        {/* Chat List / Search Results */}
         <div className="flex-1 overflow-y-auto pt-4">
-          <ChatList />
+          {searchQuery.trim() ? (
+            <MessageSearchResults
+              query={searchQuery}
+              onSelect={(chatId) => { setCurrentChatId(chatId); setSearchQuery(''); }}
+            />
+          ) : (
+            <ChatList />
+          )}
         </div>
 
         {/* Profile Footer */}

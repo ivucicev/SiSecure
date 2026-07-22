@@ -90,6 +90,7 @@ interface SiSecureContextType {
   createGroup: (name: string, members: string[]) => Promise<string>;
   addMemberToGroup: (groupId: string, memberPublicKey: string) => Promise<void>;
   forwardMessage: (messageId: string, recipientPublicKeys: string[]) => Promise<void>;
+  searchMessages: (query: string) => Promise<MessageSearchResult[]>;
   deleteMessage: (messageId: string) => Promise<void>;
   reactToMessage: (messageId: string, emoji: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
@@ -1300,6 +1301,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createGroup,
       addMemberToGroup,
       forwardMessage,
+      searchMessages,
       deleteMessage,
       reactToMessage,
       markAsRead,
