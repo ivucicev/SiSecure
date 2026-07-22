@@ -53,7 +53,7 @@ export function Home() {
   }
 
   return (
-    <div className="flex h-full bg-obsidian-950 overflow-hidden text-zinc-100">
+    <div className="flex h-full bg-obsidian-950 overscroll-none text-zinc-100">
       {/* Sidebar - Contacts */}
       <div className={cn(
         "w-full md:w-80 lg:w-[320px] border-r border-zinc-800/60 flex flex-col bg-obsidian-950 transition-all",
