@@ -17,6 +17,7 @@ import {
   getVaultPickleKeyMaterial
 } from './lib/vault';
 import { isPlatformAuthenticatorAvailable, registerBiometric, getPrfOutput } from './lib/webauthn';
+import { buildPeerOptions } from './lib/peerConfig';
 import {
   loadOrCreateOlmAccount,
   claimOneTimeKeyForHello,
@@ -57,6 +58,13 @@ async function decryptMessageForDisplay(message: Message): Promise<Message> {
   };
 }
 
+export interface MessageSearchResult {
+  message: Message;
+  chatId: string; // pass straight to setCurrentChatId
+  chatName: string;
+  isGroup: boolean;
+}
+
 interface SiSecureContextType {
   profile: UserProfile | undefined;
   settings: AppSettings | undefined;
@@ -87,6 +95,7 @@ interface SiSecureContextType {
   markAsRead: (messageId: string) => Promise<void>;
   lightNuke: () => Promise<void>;
   fullNuke: () => Promise<void>;
+  destroyIdentity: () => Promise<void>;
   currentChatId: string | null;
   setCurrentChatId: (id: string | null) => void;
 }
@@ -688,7 +697,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (cancelled) return;
       olmAccountRef.current = account;
 
-      const peer = new Peer(profile.publicKey);
+      const peer = new Peer(profile.publicKey, buildPeerOptions(settingsRef.current));
       peerRef.current = peer;
 
       peer.on('open', () => {
@@ -963,6 +972,21 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await db.megolmInboundSessions.clear();
   };
 
+  // True factory reset — also wipes profile and settings (PIN/biometric
+  // config included), unlike fullNuke. There is no local identity left
+  // afterward; the app falls back to onboarding on next load. Distinct from
+  // fullNuke/lightNuke, and never called by the inactivity auto-nuke timer.
+  const destroyIdentity = async () => {
+    await db.messages.clear();
+    await db.contacts.clear();
+    await db.groups.clear();
+    await db.olmSessions.clear();
+    await db.megolmOutboundSessions.clear();
+    await db.megolmInboundSessions.clear();
+    await db.profile.clear();
+    await db.settings.clear();
+  };
+
   const addContact = async (contact: Omit<Contact, 'id' | 'addedAt' | 'lastSeen' | 'isOnline'>) => {
     const id = generateId();
     await db.contacts.add({
@@ -1171,6 +1195,34 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // Local full-text search across every message in every conversation, not
+  // just the one currently open — db.messages has no useful index for this
+  // (content is either plaintext or, with the vault enabled, ciphertext), so
+  // this decrypts and scans every row. Fine at the message volumes a local
+  // P2P history realistically reaches; would need a real index before this
+  // stops being fine. Returns newest-first, capped so a broad query on a
+  // long history doesn't hand back thousands of rows.
+  const searchMessages = async (query: string): Promise<MessageSearchResult[]> => {
+    const q = query.trim().toLowerCase();
+    if (!q || !profile) return [];
+
+    const allMessages = await db.messages.toArray();
+    const decrypted = await Promise.all(allMessages.map(decryptMessageForDisplay));
+    const matches = decrypted.filter(m => m.content?.toLowerCase().includes(q));
+
+    const results: MessageSearchResult[] = matches.map(m => {
+      if (m.groupId) {
+        const group = groups.find(g => g.id === m.groupId);
+        return { message: m, chatId: m.groupId, chatName: group?.name ?? 'Unknown group', isGroup: true };
+      }
+      const otherKey = m.senderPublicKey === profile.publicKey ? m.recipientPublicKey : m.senderPublicKey;
+      const contact = contacts.find(c => c.publicKey === otherKey);
+      return { message: m, chatId: otherKey, chatName: contact?.displayName ?? 'Unknown contact', isGroup: false };
+    });
+
+    return results.sort((a, b) => b.message.timestamp - a.message.timestamp).slice(0, 100);
+  };
+
   const deleteMessage = async (messageId: string) => {
     const msg = await db.messages.get(messageId);
     if (!msg || !profile) return;
@@ -1253,6 +1305,7 @@ export const SiSecureProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       markAsRead,
       lightNuke,
       fullNuke,
+      destroyIdentity,
       currentChatId,
       setCurrentChatId
     }}>

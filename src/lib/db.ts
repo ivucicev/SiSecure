@@ -131,6 +131,18 @@ export interface AppSettings {
   pinSalt?: string;
   pinVerifier?: string;
   pinWrappedKey?: string;
+  // Bring-your-own PeerServer (signaling broker) — overrides PeerJS's default
+  // cloud broker (0.peerjs.com). Unset/empty falls back to the default.
+  customPeerHost?: string;
+  customPeerPort?: number;
+  customPeerPath?: string;
+  customPeerSecure?: boolean;
+  // Bring-your-own TURN — PeerJS ships with STUN only by default, which fails
+  // to connect two peers that are both behind a symmetric NAT. urls may be a
+  // comma-separated list (e.g. "turn:host:3478,turns:host:5349").
+  customTurnUrls?: string;
+  customTurnUsername?: string;
+  customTurnCredential?: string;
 }
 
 export class SiSecureDatabase extends Dexie {

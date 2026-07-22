@@ -5,6 +5,7 @@ import { Copy, Check, LogOut, Flame, Send, Radio, Users, ShieldAlert } from 'luc
 import { generateId, cn, formatTime } from '../lib/utils';
 import { generateRoomKey, exportKeyToUrlSafe, importKeyFromUrlSafe, encryptText, decryptText } from '../lib/tempCrypto';
 import { useSiSecure } from '../SiSecureContext';
+import { buildPeerOptions } from '../lib/peerConfig';
 
 interface TempMessage {
   id: string;
@@ -29,7 +30,7 @@ interface TempRoomViewProps {
 // — anyone with the full link can decrypt, by design (the link is the
 // credential), see the in-room notice for the exact trade-off.
 export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewProps) {
-  const { profile } = useSiSecure();
+  const { profile, settings } = useSiSecure();
 
   const [phase, setPhase] = useState<'setup' | 'connecting' | 'active' | 'closed'>('setup');
   const [username, setUsername] = useState(mode === 'host' ? (profile?.displayName || '') : '');
@@ -72,7 +73,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
       if (cancelled) return;
       keyRef.current = key;
 
-      const peer = new Peer(`troom_${roomId}`);
+      const peer = new Peer(`troom_${roomId}`, buildPeerOptions(settings));
       peerRef.current = peer;
 
       peer.on('open', () => { if (!cancelled) setPhase('active'); });
@@ -157,7 +158,7 @@ export function TempRoomView({ mode, roomId, roomKeyB64, onExit }: TempRoomViewP
       if (cancelled) return;
       keyRef.current = key;
 
-      const peer = new Peer(`tguest_${generateId()}`);
+      const peer = new Peer(`tguest_${generateId()}`, buildPeerOptions(settings));
       peerRef.current = peer;
 
       peer.on('open', () => {

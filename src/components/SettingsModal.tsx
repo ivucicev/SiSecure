@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSiSecure } from '../SiSecureContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Upload, LogOut, Key, User, Settings, Check, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, ArrowLeft, Shield, Lock, Database, HardDrive, Trash2, Download, Upload, Copy, User, Settings, Check, AlertTriangle, Eye, EyeOff, Radio, Skull } from 'lucide-react';
 import { db } from '../lib/db';
 import { cn } from '../lib/utils';
 import CryptoJS from 'crypto-js';
@@ -17,12 +17,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     enableBiometricLock,
     disableBiometricLock,
     lightNuke,
-    fullNuke
+    fullNuke,
+    destroyIdentity
   } = useSiSecure();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
   const [purgeConfirm, setPurgeConfirm] = useState<'light' | 'full' | null>(null);
+  const [destroyConfirmOpen, setDestroyConfirmOpen] = useState(false);
+  const [destroyConfirmText, setDestroyConfirmText] = useState('');
   const [keyCopied, setKeyCopied] = useState(false);
+  const [showPeerFields, setShowPeerFields] = useState(false);
+  const [showTurnFields, setShowTurnFields] = useState(false);
+  const [storageUsage, setStorageUsage] = useState<number | null>(null);
+
+  useEffect(() => {
+    navigator.storage?.estimate?.().then((estimate) => {
+      if (typeof estimate.usage === 'number') setStorageUsage(estimate.usage);
+    });
+  }, []);
 
   // Any OTHER method still active means the data stays encrypted either way
   // — only the very last remaining method disables real at-rest protection.
@@ -243,6 +255,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     window.location.reload();
   };
 
+  const handleDestroyIdentity = async () => {
+    await destroyIdentity();
+    window.location.reload();
+  };
+
   const saveProfile = async () => {
     if (newName.trim()) {
       await updateProfile({ displayName: newName.trim() });
@@ -314,90 +331,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 title="Copy public key"
                 className="p-3 bg-zinc-800/50 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-blue-400 border border-white/5 transition-all shrink-0"
               >
-                {keyCopied ? <Check className="w-5 h-5 text-blue-500" /> : <Key className="w-5 h-5" />}
+                {keyCopied ? <Check className="w-5 h-5 text-blue-500" /> : <Copy className="w-5 h-5" />}
               </button>
-            </div>
-          </section>
-
-          {/* Storage Section */}
-          <section className="space-y-6">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Data Sovereignty</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-8 bg-zinc-900/20 border border-white/5 rounded-[2rem] space-y-6">
-                <div className="flex items-center gap-3 text-zinc-200">
-                  <Database className="w-5 h-5 text-blue-500/60" />
-                  <span className="font-bold text-sm uppercase tracking-tight">Vault Backup</span>
-                </div>
-                <p className="text-[11px] text-zinc-500 leading-relaxed font-medium">
-                  Export all local encrypted chats and contact keys into a portable .json archive. No data ever leaves this device.
-                </p>
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    onClick={initExport}
-                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/10"
-                  >
-                    <Download className="w-4 h-4" /> Export
-                  </button>
-                  <button 
-                    onClick={initImport}
-                    className="flex-1 h-12 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-zinc-300 flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Upload className="w-4 h-4" /> Import
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-8 bg-zinc-900/20 border border-white/5 rounded-[2rem] space-y-6">
-                <div className="flex items-center gap-3 text-zinc-200">
-                  <HardDrive className="w-5 h-5 text-zinc-500" />
-                  <span className="font-bold text-sm uppercase tracking-tight">Local Storage</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-[10px] text-zinc-600 font-bold tracking-widest uppercase">
-                    <span>DATABASE VOLUME</span>
-                    <span className="text-blue-500">OPTIMIZED</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
-                    <div className="w-[12%] h-full bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]" />
-                  </div>
-                </div>
-                {purgeConfirm ? (
-                  <div className="space-y-3">
-                    <p className="text-[10px] text-red-500 font-bold uppercase text-center flex items-center justify-center gap-2">
-                      <AlertTriangle className="w-3 h-3" />
-                      {purgeConfirm === 'light'
-                        ? 'Erase all messages? Contacts stay.'
-                        : 'Erase contacts, groups & messages?'}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={purgeConfirm === 'light' ? handleLightNuke : handleFullNuke}
-                        className="flex-1 h-10 bg-red-600 text-white rounded-xl text-[10px] font-bold uppercase"
-                      >
-                        Confirm {purgeConfirm === 'light' ? 'Light' : 'Full'} Nuke
-                      </button>
-                      <button onClick={() => setPurgeConfirm(null)} className="flex-1 h-10 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase">CANCEL</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => setPurgeConfirm('light')}
-                      className="flex-1 h-12 bg-zinc-900 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/20 rounded-2xl text-zinc-500 hover:text-amber-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
-                      title="Deletes messages only. Contacts are kept."
-                    >
-                      <Trash2 className="w-4 h-4" /> Light Nuke
-                    </button>
-                    <button
-                      onClick={() => setPurgeConfirm('full')}
-                      className="flex-1 h-12 bg-zinc-900 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-2xl text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
-                      title="Deletes messages, contacts & groups. Identity is kept."
-                    >
-                      <Trash2 className="w-4 h-4" /> Full Nuke
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </section>
 
@@ -545,16 +480,229 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               )}
             </div>
           </section>
-        </div>
 
-        <div className="p-6 sm:p-8 bg-[#050505] border-t border-zinc-800/40 flex items-center justify-between gap-4 shrink-0">
-          <div className="flex flex-col gap-1 min-w-0">
-            <p className="text-[10px] text-zinc-600 font-mono tracking-tighter truncate">NODE_ID // {profile?.id.toUpperCase()}</p>
-            <p className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase">SiSecure // v{__APP_VERSION__}</p>
-          </div>
-          <button className="h-12 px-6 bg-zinc-900/50 hover:bg-red-500/10 rounded-2xl text-zinc-500 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 border border-white/5 shrink-0">
-            <LogOut className="w-4 h-4" /> Disconnect Node
-          </button>
+          {/* Network Relay Section */}
+          <section className="space-y-6">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Network Relay</h4>
+            <div className="bg-zinc-900/10 rounded-[2rem] border border-white/5 overflow-hidden">
+              <ToggleRow
+                label="Custom Signaling Server"
+                desc="Use your own PeerServer instead of the public PeerJS cloud broker. Both sides of a conversation must point at the same server to find each other."
+                on={showPeerFields || !!settings?.customPeerHost}
+                onChange={(val) => {
+                  setShowPeerFields(val);
+                  if (!val) {
+                    updateSettings({ customPeerHost: undefined, customPeerPort: undefined, customPeerPath: undefined, customPeerSecure: undefined });
+                  }
+                }}
+              />
+              {(showPeerFields || !!settings?.customPeerHost) && (
+                <div className="px-6 pb-6 pt-2 space-y-3">
+                  <input
+                    placeholder="Host (e.g. peer.example.com)"
+                    value={settings?.customPeerHost || ''}
+                    onChange={(e) => updateSettings({ customPeerHost: e.target.value })}
+                    className="w-full h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                  />
+                  <div className="flex gap-3">
+                    <input
+                      placeholder="Port (443)"
+                      type="number"
+                      value={settings?.customPeerPort ?? ''}
+                      onChange={(e) => updateSettings({ customPeerPort: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="w-28 h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                    />
+                    <input
+                      placeholder="Path (/)"
+                      value={settings?.customPeerPath || ''}
+                      onChange={(e) => updateSettings({ customPeerPath: e.target.value })}
+                      className="flex-1 h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-[11px] text-zinc-500 font-medium pl-1">
+                    <input
+                      type="checkbox"
+                      checked={settings?.customPeerSecure ?? true}
+                      onChange={(e) => updateSettings({ customPeerSecure: e.target.checked })}
+                      className="accent-blue-600"
+                    />
+                    Use TLS (wss/https)
+                  </label>
+                </div>
+              )}
+              <div className="h-px bg-white/5 mx-6" />
+              <ToggleRow
+                label="Custom TURN Server"
+                desc="PeerJS ships with STUN only by default — two peers both behind a symmetric NAT can never connect without a TURN relay. Add your own (e.g. coturn, Twilio, Metered)."
+                on={showTurnFields || !!settings?.customTurnUrls}
+                onChange={(val) => {
+                  setShowTurnFields(val);
+                  if (!val) {
+                    updateSettings({ customTurnUrls: undefined, customTurnUsername: undefined, customTurnCredential: undefined });
+                  }
+                }}
+              />
+              {(showTurnFields || !!settings?.customTurnUrls) && (
+                <div className="px-6 pb-6 pt-2 space-y-3">
+                  <input
+                    placeholder="turn:host:3478 (comma-separate for multiple)"
+                    value={settings?.customTurnUrls || ''}
+                    onChange={(e) => updateSettings({ customTurnUrls: e.target.value })}
+                    className="w-full h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                  />
+                  <div className="flex gap-3">
+                    <input
+                      placeholder="Username"
+                      value={settings?.customTurnUsername || ''}
+                      onChange={(e) => updateSettings({ customTurnUsername: e.target.value })}
+                      className="flex-1 h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                    />
+                    <input
+                      placeholder="Credential"
+                      type="password"
+                      value={settings?.customTurnCredential || ''}
+                      onChange={(e) => updateSettings({ customTurnCredential: e.target.value })}
+                      className="flex-1 h-11 bg-zinc-900/50 border border-white/5 rounded-xl px-4 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-zinc-700"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="px-6 pb-6 pt-1">
+                <p className="text-[10px] text-zinc-600 leading-relaxed flex items-start gap-2">
+                  <Radio className="w-3 h-3 mt-0.5 shrink-0" />
+                  Takes effect next time a connection is (re)established — not the current session.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Storage Section */}
+          <section className="space-y-6">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Data Sovereignty</h4>
+            <div className="grid grid-cols-1 gap-6">
+              <div className="p-8 bg-zinc-900/20 border border-white/5 rounded-[2rem] space-y-6">
+                <div className="flex items-center gap-3 text-zinc-200">
+                  <Database className="w-5 h-5 text-blue-500/60" />
+                  <span className="font-bold text-sm uppercase tracking-tight">Vault Backup</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 leading-relaxed font-medium">
+                  Export all local encrypted chats and contact keys into a portable .json archive. No data ever leaves this device.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={initExport}
+                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/10"
+                  >
+                    <Download className="w-4 h-4" /> Export
+                  </button>
+                  <button
+                    onClick={initImport}
+                    className="flex-1 h-12 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-zinc-300 flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Upload className="w-4 h-4" /> Import
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-8 bg-zinc-900/20 border border-white/5 rounded-[2rem] space-y-6">
+                <div className="flex items-center justify-between text-zinc-200">
+                  <div className="flex items-center gap-3">
+                    <HardDrive className="w-5 h-5 text-zinc-500" />
+                    <span className="font-bold text-sm uppercase tracking-tight">Local Storage</span>
+                  </div>
+                  {storageUsage !== null && (
+                    <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{formatBytes(storageUsage)}</span>
+                  )}
+                </div>
+                {purgeConfirm ? (
+                  <div className="space-y-3">
+                    <p className={cn(
+                      "text-[10px] font-bold uppercase text-center flex items-center justify-center gap-2",
+                      purgeConfirm === 'light' ? "text-amber-500" : "text-red-500"
+                    )}>
+                      <AlertTriangle className="w-3 h-3" />
+                      {purgeConfirm === 'light'
+                        ? 'Erase all messages? Contacts stay.'
+                        : 'Erase contacts, groups & messages?'}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={purgeConfirm === 'light' ? handleLightNuke : handleFullNuke}
+                        className={cn(
+                          "flex-1 h-10 text-white rounded-xl text-[10px] font-bold uppercase",
+                          purgeConfirm === 'light' ? "bg-amber-600" : "bg-red-600"
+                        )}
+                      >
+                        Confirm {purgeConfirm === 'light' ? 'Light' : 'Full'} Nuke
+                      </button>
+                      <button onClick={() => setPurgeConfirm(null)} className="flex-1 h-10 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase">CANCEL</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => setPurgeConfirm('light')}
+                      className="flex-1 h-12 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-2xl text-amber-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                      title="Deletes messages only. Contacts are kept."
+                    >
+                      <Trash2 className="w-4 h-4" /> Light Nuke
+                    </button>
+                    <button
+                      onClick={() => setPurgeConfirm('full')}
+                      className="flex-1 h-12 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                      title="Deletes messages, contacts & groups. Identity is kept."
+                    >
+                      <Trash2 className="w-4 h-4" /> Full Nuke
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-8 bg-red-950/10 border border-red-500/10 rounded-[2rem] space-y-6">
+                <div className="flex items-center gap-3 text-zinc-200">
+                  <Skull className="w-5 h-5 text-red-500/60" />
+                  <span className="font-bold text-sm uppercase tracking-tight">Factory Reset</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 leading-relaxed font-medium">
+                  Permanently destroys your identity along with everything else — keys, contacts, messages, settings. Unlike Full Nuke, there is no going back to this profile: contacts would see you as a stranger if you ever create a new one. Cannot be undone.
+                </p>
+                {destroyConfirmOpen ? (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-red-500 font-bold uppercase text-center">Type DESTROY to confirm</p>
+                    <input
+                      autoFocus
+                      value={destroyConfirmText}
+                      onChange={(e) => setDestroyConfirmText(e.target.value)}
+                      placeholder="DESTROY"
+                      className="w-full h-11 bg-zinc-900/50 border border-red-500/20 rounded-xl px-4 text-sm text-center text-zinc-200 tracking-widest focus:outline-none focus:ring-1 focus:ring-red-500/50 placeholder:text-zinc-700"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleDestroyIdentity}
+                        disabled={destroyConfirmText !== 'DESTROY'}
+                        className="flex-1 h-10 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-xl text-[10px] font-bold uppercase transition-all"
+                      >
+                        Confirm Destroy
+                      </button>
+                      <button
+                        onClick={() => { setDestroyConfirmOpen(false); setDestroyConfirmText(''); }}
+                        className="flex-1 h-10 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDestroyConfirmOpen(true)}
+                    className="w-full h-12 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Skull className="w-4 h-4" /> Destroy Identity
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
         </div>
       </motion.div>
 
@@ -622,6 +770,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       </AnimatePresence>
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
 function ToggleRow({ label, desc, on, onChange }: { label: string, desc: string, on: boolean, onChange: (val: boolean) => void }) {

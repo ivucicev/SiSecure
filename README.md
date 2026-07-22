@@ -10,6 +10,10 @@
   <img src="https://img.shields.io/badge/transport-webrtc-2563EB?style=flat-square&labelColor=0A0A0A" alt="WebRTC transport">
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/ivucicev"><img src="https://img.shields.io/badge/support-buy%20me%20a%20coffee-FFDD00?style=flat-square&labelColor=0A0A0A&logo=buy-me-a-coffee&logoColor=FFDD00" alt="Buy me a coffee"></a>
+</p>
+
 ---
 
 ## What is this
@@ -31,6 +35,7 @@ If SiSecure's infrastructure disappeared tomorrow, your conversations wouldn't �
 - **Presence without a server.** Online/offline status is derived from live peer connections, not a centralized presence service.
 - **PIN lock and encrypted local vault.** An optional PIN derives an AES-256-GCM key (via PBKDF2) that encrypts your identity, sessions, and message history at rest — without it, IndexedDB on disk is unreadable, including to anyone with direct access to the device.
 - **Tiered data nuke, with auto-nuke on inactivity.** Wipe just message history, or everything except your identity, in one action — optionally triggered automatically after a configurable number of idle days.
+- **Bring your own signaling & TURN.** Settings → Network Relay lets you point at a self-hosted PeerServer and/or your own TURN server instead of the public defaults. See the discovery note under Security notes below before switching — the two settings behave differently.
 
 ## How it works
 
@@ -122,10 +127,11 @@ src/
 - With the PIN vault enabled, identity, sessions, and message history are also encrypted at rest — without the PIN, none of it is readable from the device's storage either.
 - Encrypted local backups are protected with a user-supplied passphrase (AES) — the passphrase never leaves your device either.
 - This project is under active development. Treat it as a strong technical foundation, not yet an audited production security product — see open items below before relying on it for high-stakes threat models.
+- **Custom signaling server vs. custom STUN/TURN — these behave differently.** The signaling server (PeerServer) is the rendezvous point two peers use to find each other; it must be the *same* server on both sides, or you simply can't discover one another, even for a contact you've already exchanged messages with. STUN/TURN config has no such requirement — each side gathers its own ICE candidates independently, so you and a contact can each point at different STUN/TURN servers (or none) and still connect fine. Switching either setting never touches your stored contacts, message history, or Olm session state — only whether a *live* connection can currently be established.
 
 **Known limitations:**
 - The WebRTC signaling identity (used to route connections) isn't cryptographically bound to the Olm identity key. Safety-number verification closes this gap, but it's a manual, opt-in step — verify new contacts out-of-band if your threat model includes an adversary on the signaling path.
-- No TURN relay beyond the public broker's shared fallback; connections across some restrictive networks may be unreliable.
+- No TURN relay beyond the public broker's shared fallback by default; connections across some restrictive/symmetric-NAT networks may be unreliable unless you configure your own TURN server (Settings → Network Relay).
 - **Delivery requires overlapping online time.** Since there's no store-and-forward server, a message only reaches its recipient once both of you happen to have the app open at the same moment. If you send while they're offline and then close the app yourself before they return, nothing is left running anywhere to retry it — it waits for the next coincidence. This is inherent to a serverless P2P design, not a bug.
 
 ## Roadmap

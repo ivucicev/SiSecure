@@ -117,7 +117,7 @@ export function Home() {
               <h2 className="font-bold text-sm leading-tight group-hover:text-white transition-colors">{profile?.displayName}</h2>
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                <p className="text-[10px] text-zinc-500 font-mono">ID: {profile?.id.substring(0, 8)}</p>
+                <p className="text-[10px] text-zinc-500 font-mono">Online</p>
               </div>
             </div>
             <p className="text-[9px] text-zinc-700 font-mono uppercase shrink-0">v{__APP_VERSION__}</p>

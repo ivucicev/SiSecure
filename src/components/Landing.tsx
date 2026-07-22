@@ -12,6 +12,8 @@ import {
   Flame,
   Github,
   Bell,
+  Server,
+  Coffee,
 } from 'lucide-react';
 import { TempRoomView } from './TempRoomView';
 import { generateId } from '../lib/utils';
@@ -28,6 +30,7 @@ const FEATURES = [
   { icon: Radio, title: 'Direct P2P transport', body: 'Messages travel over WebRTC, peer to peer. A signaling broker helps you connect — it never sees content.' },
   { icon: Users, title: 'Encrypted groups', body: 'Megolm group sessions with automatic key rotation as membership changes.' },
   { icon: HardDrive, title: 'Local data sovereignty', body: 'Everything lives in your browser. Encrypted export/import to move to a new device.' },
+  { icon: Server, title: 'Bring your own relay', body: "Point at your own signaling server and TURN relay in Settings. Both sides need the same signaling server to find each other; STUN/TURN can differ per device." },
 ];
 
 const STEPS = [
@@ -64,11 +67,29 @@ export function Landing({ onGetStarted }: LandingProps) {
       exit={{ opacity: 0 }}
       className="h-full overflow-y-auto bg-obsidian-950 text-zinc-100"
     >
+      {/* Header */}
+      <div className="flex items-center justify-end gap-3 px-6 pt-6 max-w-5xl mx-auto">
+        <a
+          href="https://github.com/ivucicev/SiSecure"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="h-10 px-4 flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-medium rounded-xl transition-all"
+        >
+          <Github className="w-4 h-4" /> GitHub
+        </a>
+        <a
+          href="https://buymeacoffee.com/ivucicev"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="h-10 px-4 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-semibold rounded-xl transition-all"
+        >
+          <Coffee className="w-4 h-4" /> Buy me a coffee
+        </a>
+      </div>
+
       {/* Hero */}
       <div className="max-w-3xl mx-auto px-6 pt-24 pb-16 text-center space-y-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-xl shadow-blue-900/40 text-white font-bold text-3xl mx-auto">
-          Si
-        </div>
+        <img src="/icon-512.png" alt="SiSecure" className="w-16 h-16 rounded-2xl shadow-xl shadow-blue-900/40 mx-auto" />
         <div className="space-y-4">
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">SiSecure</h1>
           <p className="text-zinc-400 text-lg leading-relaxed max-w-xl mx-auto font-light">
@@ -144,15 +165,7 @@ export function Landing({ onGetStarted }: LandingProps) {
 
       {/* Footer */}
       <div className="border-t border-zinc-800/60 py-8 text-center">
-        <a
-          href="https://github.com/ivucicev/SiSecure"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-        >
-          <Github className="w-4 h-4" /> View source on GitHub
-        </a>
-        <p className="text-[10px] text-zinc-700 mt-3 flex items-center justify-center gap-1.5">
+        <p className="text-[10px] text-zinc-700 flex items-center justify-center gap-1.5">
           <Timer className="w-3 h-3" /> Zero server · Zero metadata · Local-first, always
         </p>
       </div>
